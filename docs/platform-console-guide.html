@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Test Evidence Console 图文流程指南</title>
+  <style>
+    :root { --ink:#172126; --muted:#5c6870; --paper:#f7f4ed; --panel:#fffdf8; --line:#d9d4c9; --teal:#006d77; --yellow:#f4b942; --coral:#d85b45; --blue:#2f5f9e; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; background:var(--paper); color:var(--ink); font-family:Georgia, "Noto Serif SC", "Songti SC", serif; line-height:1.65; }
+    .page { max-width:1440px; margin:0 auto; padding:0 28px 72px; }
+    .masthead { border-bottom:4px solid var(--ink); padding:46px 0 28px; display:grid; grid-template-columns:1fr auto; gap:24px; align-items:end; }
+    .kicker { margin:0 0 8px; color:var(--teal); font:700 13px/1.2 "Courier New", monospace; letter-spacing:0; }
+    h1,h2,h3 { line-height:1.2; margin:0; }
+    h1 { max-width:760px; font-size:clamp(36px,5vw,68px); font-weight:700; letter-spacing:0; }
+    h1 span { color:var(--coral); }
+    .edition { max-width:230px; border-left:1px solid var(--line); padding-left:18px; font:13px/1.6 "Courier New", monospace; color:var(--muted); }
+    .lede { max-width:850px; margin:24px 0 0; font-size:19px; }
+    .guide-grid { display:grid; grid-template-columns:220px minmax(0,1fr); gap:36px; margin-top:36px; }
+    .toc { align-self:start; position:sticky; top:18px; border-top:2px solid var(--ink); font-family:"Courier New", monospace; }
+    .toc p { margin:12px 0 6px; font-size:12px; color:var(--muted); }
+    .toc a { display:block; padding:7px 0; color:var(--ink); font-size:13px; text-decoration:none; border-bottom:1px solid var(--line); }
+    .toc a:hover { color:var(--teal); }
+    .content > section { padding:34px 0 50px; border-top:1px solid var(--line); }
+    .section-head { display:flex; gap:16px; align-items:baseline; margin-bottom:18px; }
+    .num { color:var(--coral); font:700 15px/1 "Courier New", monospace; }
+    h2 { font-size:31px; }
+    h3 { font-size:20px; }
+    .caption { margin:8px 0 20px; color:var(--muted); }
+    .flow { display:grid; grid-template-columns:repeat(6,minmax(126px,1fr)); gap:0; margin:22px 0 8px; overflow-x:auto; padding-bottom:8px; }
+    .flow-step { min-width:126px; position:relative; background:var(--panel); border:1px solid var(--line); min-height:150px; padding:16px 14px; }
+    .flow-step:not(:last-child)::after { content:"→"; position:absolute; right:-15px; top:56px; z-index:1; width:29px; text-align:center; color:var(--paper); font:bold 24px/1 sans-serif; text-shadow:-1px 0 var(--line),0 1px var(--line),1px 0 var(--line),0 -1px var(--line); }
+    .flow-step b { display:block; color:var(--teal); font:700 12px/1.2 "Courier New", monospace; }
+    .flow-step strong { display:block; margin-top:10px; font-size:17px; line-height:1.35; }
+    .flow-step p { margin:7px 0 0; color:var(--muted); font-size:13px; line-height:1.45; }
+    .callout { border-left:5px solid var(--yellow); background:#fff7d8; padding:14px 17px; margin:24px 0; }
+    .callout strong { color:#765300; }
+    .facts { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line); margin:20px 0; }
+    .fact { background:var(--panel); padding:14px 16px; }
+    .fact b { display:block; color:var(--teal); font:700 12px/1.2 "Courier New", monospace; }
+    .fact span { display:block; margin-top:5px; font-size:14px; }
+    .step { display:grid; grid-template-columns:52px 1fr; gap:18px; margin:35px 0 12px; }
+    .step-index { width:42px; height:42px; display:grid; place-items:center; background:var(--ink); color:var(--paper); font:700 16px/1 "Courier New", monospace; }
+    .step-copy p { margin:8px 0; }
+    .guide-list { padding-left:22px; margin:14px 0; }
+    .guide-list li { margin:7px 0; }
+    .shot { margin:22px 0 12px; background:#192429; border:1px solid #111; box-shadow:10px 10px 0 #d2ccc0; overflow:hidden; }
+    .shot img { display:block; width:100%; height:auto; }
+    .shot figcaption { margin:0; padding:10px 14px; background:#192429; color:#e9eceb; font:12px/1.5 "Courier New", monospace; }
+    .marker-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px; margin:16px 0; }
+    .marker { display:flex; gap:10px; align-items:flex-start; border-top:1px solid var(--line); padding:10px 0; font-size:14px; }
+    .badge { flex:0 0 24px; width:24px; height:24px; border-radius:50%; display:grid; place-items:center; background:var(--coral); color:white; font:700 12px/1 "Courier New", monospace; }
+    .mode-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0; }
+    .mode { padding:20px; border-top:4px solid var(--teal); background:var(--panel); }
+    .mode.http { border-color:var(--blue); }
+    .mode p { margin:8px 0 0; font-size:14px; }
+    .status-strip { display:flex; gap:0; margin:18px 0; overflow-x:auto; }
+    .status { min-width:150px; position:relative; padding:12px 16px; background:var(--panel); border:1px solid var(--line); font:700 13px/1.3 "Courier New", monospace; }
+    .status + .status { border-left:0; }
+    .status.live { background:#e5f2ef; color:#005c63; }
+    .status.drain { background:#fff1d0; color:#6b5000; }
+    .status.done { background:#e9eef7; color:#244a7e; }
+    .result-note { border:1px solid var(--line); background:var(--panel); padding:18px; margin-top:22px; }
+    details { border-top:1px solid var(--line); padding:12px 0; }
+    summary { cursor:pointer; font-weight:700; }
+    @media (max-width:900px) { .guide-grid{grid-template-columns:1fr}.toc{position:static;display:grid;grid-template-columns:repeat(2,1fr);gap:0}.toc p{grid-column:1/-1}.facts,.mode-grid{grid-template-columns:1fr}.masthead{grid-template-columns:1fr}.edition{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:12px}.page{padding:0 18px 48px} }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="masthead">
+      <div>
+        <p class="kicker">TEST EVIDENCE CONSOLE / DEV &amp; TEST FIELD GUIDE</p>
+        <h1>从测试数据到<span>调用证据</span></h1>
+        <p class="lede">面向测试人员的操作指南。用一条唯一业务标识打开 Browser 黑盒采集窗口，完成产品操作后，在结果页还原服务调用、请求原文和 JDBC Evidence。</p>
+      </div>
+      <aside class="edition">版本：P0-P20 样例界面<br>模式：Browser 黑盒为主<br>阅读方式：按 01 至 06 操作</aside>
+    </header>
+
+    <div class="guide-grid">
+      <nav class="toc" aria-label="文档目录">
+        <p>目录 / CONTENTS</p>
+        <a href="#overview">总览</a><a href="#config">01 配置采集规则</a><a href="#case">02 创建测试用例</a><a href="#run">03 启动采集</a><a href="#browser">04 产品页面操作</a><a href="#result">05 阅读运行结果</a><a href="#tips">常见判断</a>
+      </nav>
+
+      <article class="content">
+        <section id="overview">
+          <div class="section-head"><span class="num">00</span><h2>一轮 Browser 黑盒测试怎样流动</h2></div>
+          <p class="caption">启动采集不是直接发起业务请求。它先把关联字段及其值下发给 Agent，随后由测试人员回到产品页面完成真实操作。</p>
+          <div class="flow" aria-label="Browser 黑盒流程">
+            <div class="flow-step"><b>01</b><strong>采集规则</strong><p>定义 orderNo 等唯一关联字段。</p></div>
+            <div class="flow-step"><b>02</b><strong>测试用例</strong><p>绑定规则，设置超时和原文采集。</p></div>
+            <div class="flow-step"><b>03</b><strong>启动运行</strong><p>填写本次唯一业务值，等待规则下发。</p></div>
+            <div class="flow-step"><b>04</b><strong>产品操作</strong><p>在真实页面查询、修改、提交或确认。</p></div>
+            <div class="flow-step"><b>05</b><strong>结束采集</strong><p>停止新命中，等待在途请求排空。</p></div>
+            <div class="flow-step"><b>06</b><strong>查看 Evidence</strong><p>查看断言、拓扑、树形明细和原文。</p></div>
+          </div>
+          <div class="callout"><strong>核心原则：</strong>Browser 模式中，关联字段值应在本次测试窗口内唯一。若先查询、再修改同一订单，两段命中的请求都会保留为独立根 Trace。</div>
+          <div class="facts"><div class="fact"><b>关联字段</b><span>可添加多个字段，支持 JSON Body 或 HTTP Header。</span></div><div class="fact"><b>服务范围</b><span>可留空，避免因未知入口服务造成链路缺口。</span></div><div class="fact"><b>原文采集</b><span>按用例开启，结果中再按需加载入参/出参。</span></div></div>
+        </section>
+
+        <section id="config">
+          <div class="section-head"><span class="num">01</span><h2>创建采集规则</h2></div>
+          <p class="caption">配置页上半部分是“采集规则”。规则决定 Agent 在什么字段、什么位置识别本次测试数据。</p>
+          <div class="step"><div class="step-index">1</div><div class="step-copy"><h3>填写规则名称和关联字段</h3><p>名称用于测试人员识别。关联字段建议使用订单号、支付单号、请求流水号等时间窗口内唯一的业务标识。</p><ul class="guide-list"><li><b>名称：</b>例如“订单黑盒采集”。</li><li><b>采集服务范围：</b>可选。知道入口服务时可填写逗号分隔的服务名；不确定时留空。</li><li><b>关联字段：</b>例如 <code>orderNo</code>；字段在请求 Body 时选“JSON Body”，在 Header 时选“HTTP Header”。</li></ul></div></div>
+          <figure class="shot"><img src="guide-assets/01-configuration.png" alt="控制台配置页，包含采集规则和测试用例"><figcaption>真实配置页。规则与测试用例被放在同一工作区，右侧列表提供名称、版本、状态和规则筛选。</figcaption></figure>
+          <div class="marker-list"><div class="marker"><span class="badge">1</span><span>“添加关联字段”用于增加第二个及以上匹配条件。多个字段同时命中可降低误采集概率。</span></div><div class="marker"><span class="badge">2</span><span>创建成功后，规则会立即出现在下方列表，并出现在“测试用例”的采集规则下拉框中。</span></div><div class="marker"><span class="badge">3</span><span>规则列表的名称与版本筛选适用于规则较多的测试环境。</span></div></div>
+        </section>
+
+        <section id="case">
+          <div class="section-head"><span class="num">02</span><h2>创建测试用例</h2></div>
+          <p class="caption">测试用例将采集规则、触发方式、超时时间与断言收敛为一个可重复运行的测试单元。</p>
+          <div class="mode-grid"><div class="mode"><h3>Browser 黑盒</h3><p>选择“Browser 黑盒”，绑定采集规则并设置超时。测试人员随后在产品页面进行真实操作；本期不将页面 UI 作为断言。</p></div><div class="mode http"><h3>HTTP 接口</h3><p>选择“HTTP 接口”后，增加请求方法、URL、Header、JSON Body、状态码、JSONPath 和 MySQL 标量断言配置。</p></div></div>
+          <div class="step"><div class="step-index">2</div><div class="step-copy"><h3>为 Browser 用例选择规则</h3><p>选择上一步创建的采集规则，设置 60 至 3600 秒超时。若要在结果页查看 HTTP 请求/响应原文，勾选“采集 HTTP 入参/出参原文”。</p><p>创建后，可在用例列表按名称、触发类型、完成状态和采集规则筛选；完成的 Case 会按保留策略进入清理周期。</p></div></div>
+        </section>
+
+        <section id="run">
+          <div class="section-head"><span class="num">03</span><h2>启动运行并等待规则下发</h2></div>
+          <p class="caption">在“运行”页选择用例，并填写本次唯一业务标识。不要在未完成下发倒计时时开始产品操作。</p>
+          <div class="step"><div class="step-index">3</div><div class="step-copy"><h3>填写关联字段值</h3><p>选择 Browser 用例后，页面会自动显示规则定义的字段，例如 <code>orderNo</code>。输入本次测试值后点击“启动运行”。</p></div></div>
+          <figure class="shot"><img src="guide-assets/02-run.png" alt="控制台运行页，包含测试用例选择、orderNo 输入和运行记录"><figcaption>真实运行页。左侧用于启动与结束采集，右侧为带筛选与分页的运行记录。</figcaption></figure>
+          <div class="status-strip" aria-label="运行状态">
+            <div class="status">QUEUED<br><small>已创建，等待执行</small></div><div class="status live">RUNNING<br><small>采集中，可开始产品操作</small></div><div class="status drain">DRAINING<br><small>停止新采集，等待在途调用</small></div><div class="status done">SUCCEEDED / FAILED<br><small>结果已结算</small></div>
+          </div>
+          <div class="marker-list"><div class="marker"><span class="badge">1</span><span>“采集中 · 规则下发中”倒计时结束并显示“采集中”后，才回到产品页面操作。</span></div><div class="marker"><span class="badge">2</span><span>“结束采集”会进入排空状态。此时不再接收新的匹配请求，但已开始的调用仍会结算。</span></div><div class="marker"><span class="badge">3</span><span>运行记录支持按用例或 Run ID、状态、触发类型及时间范围筛选。</span></div></div>
+        </section>
+
+        <section id="browser">
+          <div class="section-head"><span class="num">04</span><h2>回到产品页面完成黑盒操作</h2></div>
+          <p class="caption">平台已记录关联字段值后，Agent 只会把请求 JSON Body 或 HTTP Header 中命中该值的链路写入本次 Run。</p>
+          <div class="step"><div class="step-index">4</div><div class="step-copy"><h3>执行真实业务流程</h3><ul class="guide-list"><li>打开测试环境产品页面，以同一个 <code>orderNo</code> 查询订单。</li><li>执行修改、确认、提交等目标业务动作。</li><li>页面请求经过 Agent 后，HTTP 入站、下游 HTTP/Dubbo 调用和 JDBC PreparedStatement Evidence 会归入当前 Run。</li><li>完成操作后返回运行页，点击“结束采集”。</li></ul></div></div>
+          <div class="callout"><strong>避免误判超时：</strong>若运行页持续没有根链路，先检查是否已等待规则下发完成、业务请求是否携带相同字段、每个服务节点是否均以相同 Collector 与 Token 启动 Agent。</div>
+        </section>
+
+        <section id="result">
+          <div class="section-head"><span class="num">05</span><h2>在结果页审阅调用证据</h2></div>
+          <p class="caption">选择一条运行记录后自动进入结果页。页面首先显示本次用例快照和断言，然后展示 Span 实例调用拓扑。</p>
+          <div class="step"><div class="step-index">5</div><div class="step-copy"><h3>调用拓扑：查看真实调用顺序</h3><p>每个节点都是独立 Span 实例，不会合并重复服务。即使发生 <code>A → B → A → B</code>，也会按四个节点展示。点击节点后，右侧显示服务、协议/方向、HTTP 状态、耗时、子节点数，并可选择“查看入参”或“查看出参”。</p></div></div>
+          <figure class="shot"><img src="guide-assets/03-result-topology.png" alt="结果页调用拓扑，展示 order、fulfillment 和 JDBC 节点"><figcaption>真实结果页调用拓扑。样例 Run 中保留两条根 Trace；每条均包含 order HTTP、fulfillment HTTP 以及 JDBC Evidence。</figcaption></figure>
+          <div class="step"><div class="step-index">6</div><div class="step-copy"><h3>树形明细：按父子关系逐层核查</h3><p>当同一服务多次调用或图形节点较多时，切换“树形明细”。它按 Trace 展开父子关系，适合逐层确认 HTTP 调用与 JDBC 操作发生在哪一段链路中。</p></div></div>
+          <figure class="shot"><img src="guide-assets/04-result-tree.png" alt="结果页树形明细，按 Trace 展开 HTTP 和 JDBC 节点"><figcaption>真实结果页树形明细。每个 Trace 下面按调用顺序列出 HTTP SERVER 与 JDBC CLIENT 节点及耗时。</figcaption></figure>
+          <div class="result-note"><h3>三种结果视图如何选择</h3><ul class="guide-list"><li><b>调用拓扑：</b>快速观察跨服务调用、重复调用和失败节点。</li><li><b>服务依赖概览：</b>汇总服务间调用次数与失败数，适合分析整体依赖。</li><li><b>树形明细：</b>以父子层级回放单个 Trace，适合定位具体请求与 SQL Evidence。</li></ul></div>
+        </section>
+
+        <section id="tips">
+          <div class="section-head"><span class="num">06</span><h2>常见判断</h2></div>
+          <details open><summary>为什么查询订单后，修改订单也被采集？</summary><p>Browser 模式以测试人员手动开始和结束为边界。窗口内所有命中关联字段的请求都会保留，因此查询与修改会成为同一 Run 中的不同根 Trace。</p></details>
+          <details><summary>为什么结果里 HTTP 原文没有默认展开？</summary><p>原文只在创建用例时开启采集后可用，并在右侧节点详情中按“查看入参/查看出参”加载，避免结果页首次打开时传输过多内容。</p></details>
+          <details><summary>JDBC 参数摘要为什么不是完整值？</summary><p>JDBC Evidence 保存 setter、长度和 SHA-256 前缀摘要，用于证明调用与排查参数差异，同时避免把完整敏感参数写入平台库。</p></details>
+          <details><summary>什么情况下显示 FAILED？</summary><p>例如 Browser 运行在超时前未发现任何匹配 Evidence、HTTP 断言失败，或运行过程中出现不可恢复错误。打开该条 Run 后先查看失败原因与用例快照，再核对 Agent 日志和关联字段。</p></details>
+        </section>
+      </article>
+    </div>
+  </main>
+</body>
+</html>
