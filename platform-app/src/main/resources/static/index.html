@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Test Evidence Console</title>
+  <link rel="stylesheet" href="console.css">
+</head>
+<body>
+  <header class="topbar"><div class="brand">TEST EVIDENCE <span>CONSOLE</span></div><div id="notice" role="status">准备就绪</div></header>
+  <main class="shell">
+    <nav class="rail" aria-label="控制台导航">
+      <button class="nav-item active" data-view="configuration">配置</button>
+      <button class="nav-item" data-view="run">运行</button>
+      <button class="nav-item" data-view="result">结果</button>
+      <div class="rail-foot">DEV / TEST</div>
+    </nav>
+    <section class="workspace">
+      <section id="configuration" class="view active">
+        <div class="view-heading"><div><p class="eyebrow">01 / CAPTURE SETUP</p><h1>配置</h1></div><button class="icon-button" id="refresh-config" title="刷新配置">↻</button></div>
+        <div class="configuration-workbench">
+          <section id="profile-workbench" class="configuration-workbench-column">
+          <details open><summary>采集规则</summary>
+        <div class="split-grid">
+          <form id="profile-form" class="panel form-panel"><h2>新建采集规则</h2><label>名称<input name="name" required maxlength="120" placeholder="订单黑盒采集"></label><label>采集服务范围（可选）<input name="service" maxlength="120" placeholder="order-service, fullfill-service"></label><div id="matcher-fields"><div class="matcher-row"><label>关联字段<input name="field" required maxlength="120" placeholder="orderNo"></label><label>字段位置<select name="location"><option value="JSON_BODY">JSON Body</option><option value="HEADER">HTTP Header</option></select></label></div></div><button type="button" class="secondary" id="add-matcher">添加关联字段</button><button type="submit">创建规则</button></form>
+          <div class="panel list-panel"><h2>采集规则</h2><form id="profile-filter" class="list-filter"><label>名称<input name="query" placeholder="规则名称"></label><label>版本<input name="version" type="number" min="1" placeholder="全部"></label><button type="submit">查询</button></form><div id="profile-list" class="data-list"></div><div id="profile-pager"></div></div>
+        </div></details></section>
+          <section id="case-workbench" class="configuration-workbench-column">
+          <details open><summary>测试用例</summary>
+        <div class="split-grid">
+          <form id="case-form" class="panel form-panel"><h2>新建测试用例</h2><label>名称<input name="name" required maxlength="120" placeholder="订单创建链路"></label><label>触发类型<select name="triggerType" id="trigger-type"><option value="BROWSER">Browser 黑盒</option><option value="HTTP">HTTP 接口</option></select></label><label>采集规则<select name="profileId" id="profile-select" required></select></label><label>超时（秒）<input name="timeoutSeconds" id="case-timeout-seconds" type="number" min="60" max="3600" value="1800" required></label><label class="check-label"><input id="http-payload-capture-enabled" type="checkbox">采集 HTTP 入参/出参原文</label><section id="http-config" hidden><label>请求方法<select id="http-method"><option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select></label><label>URL<input id="http-url" placeholder="https://service.example/orders" maxlength="1000"></label><div class="form-section"><span>请求头</span><div id="http-headers" class="header-list"></div><button type="button" class="secondary" id="add-http-header">添加 Header</button></div><label>JSON 请求体<textarea id="http-body" rows="5" spellcheck="false" placeholder="{&quot;orderNo&quot;:&quot;example&quot;}"></textarea></label><div class="form-section"><label class="check-label"><input id="http-status-enabled" type="checkbox">HTTP 状态码断言</label><input id="http-status-expected" type="number" min="100" max="599" placeholder="201" disabled></div><div class="form-section"><label class="check-label"><input id="http-json-path-enabled" type="checkbox">JSONPath 相等断言</label><label>JSONPath<input id="http-json-path" placeholder="$.data.id" disabled></label><label>预期 JSON<input id="http-json-expected" placeholder="&quot;case-1&quot;" disabled></label></div><div id="mysql-scalar-section" class="form-section"><label class="check-label"><input id="mysql-scalar-enabled" type="checkbox">MySQL 标量断言</label><label>查询 SQL<textarea id="mysql-scalar-sql" rows="3" spellcheck="false" placeholder="SELECT status FROM orders WHERE order_no = ?" disabled></textarea></label><div><span>参数来源</span><div id="mysql-scalar-parameters" class="mysql-parameter-list"></div><button type="button" class="secondary" id="add-mysql-parameter" disabled>添加参数</button></div><label>预期 JSON<input id="mysql-scalar-expected" placeholder="&quot;PAID&quot;" disabled></label><label>等待秒数<input id="mysql-scalar-wait-seconds" type="number" min="0" max="10" value="0" disabled></label></div></section><button type="submit">创建用例</button></form>
+          <div class="panel list-panel"><h2>测试用例</h2><form id="case-filter" class="list-filter"><label>名称<input name="query" placeholder="用例名称"></label><label>触发<select name="triggerType"><option value="">全部</option><option value="HTTP">HTTP</option><option value="BROWSER">BROWSER</option></select></label><label>状态<select name="completed"><option value="">全部</option><option value="false">活跃</option><option value="true">已完成</option></select></label><label>采集规则<select name="profileId" id="case-filter-profile"><option value="">全部规则</option></select></label><button type="submit">查询</button></form><div id="case-list" class="data-list"></div><div id="case-pager"></div></div>
+        </div></details></section></div>
+      </section>
+      <section id="run" class="view">
+        <div class="view-heading"><div><p class="eyebrow">02 / BLACKBOX RUN</p><h1>运行</h1></div><button class="icon-button" id="refresh-runs" title="刷新运行记录">↻</button></div>
+        <div class="run-workbench"><form id="run-form" class="panel form-panel"><h2>启动用例</h2><label>测试用例<select name="testCaseId" id="run-case-select" required></select></label><div id="correlation-fields"></div><button id="run-submit" type="submit">启动运行</button><section id="blackbox-capture-panel" class="blackbox-capture" hidden><div class="blackbox-capture-status"><span class="capture-live-dot" aria-hidden="true"></span><div><strong id="blackbox-capture-state" role="status">采集中</strong><div id="blackbox-capture-meta" class="meta"></div></div></div><button id="blackbox-stop" class="blackbox-stop" type="button">结束采集</button></section></form><div class="panel list-panel"><h2>运行记录</h2><form id="run-filter" class="list-filter run-filter"><label>用例 / Run ID<input name="query" placeholder="名称或 ID"></label><label>状态<select name="status"><option value="">全部</option><option>QUEUED</option><option>RUNNING</option><option>DRAINING</option><option>SUCCEEDED</option><option>FAILED</option></select></label><label>触发<select name="triggerType"><option value="">全部</option><option value="HTTP">HTTP</option><option value="BROWSER">BROWSER</option></select></label><label>开始日期<input name="startedFrom" type="date"></label><label>结束日期<input name="startedTo" type="date"></label><button type="submit">查询</button></form><div id="run-list" class="data-list"></div><div id="run-pager"></div></div></div>
+      </section>
+      <section id="result" class="view">
+        <div class="view-heading"><div><p class="eyebrow">03 / EVIDENCE REVIEW</p><h1>结果</h1></div><button class="icon-button" id="refresh-result" title="刷新结果">↻</button></div>
+          <div id="result-summary" class="summary">选择一个运行记录以查看断言和 Trace。</div>
+          <section id="run-case-snapshot" class="run-case-snapshot" hidden></section>
+        <div id="assertion-list" class="assertions"></div>
+        <section class="trace-review" aria-label="调用链路">
+          <div class="trace-toolbar" role="tablist" aria-label="链路视图">
+            <button class="trace-view active" type="button" data-trace-view="topology" role="tab" aria-selected="true">调用拓扑</button>
+            <button class="trace-view" type="button" data-trace-view="overview" role="tab" aria-selected="false">服务依赖概览</button>
+            <button class="trace-view" type="button" data-trace-view="tree" role="tab" aria-selected="false">树形明细</button>
+          </div>
+          <div id="topology-warning" class="topology-warning" hidden></div>
+          <div id="trace-layout" class="trace-layout">
+            <div id="topology-canvas" class="topology-canvas" role="region" aria-label="Span 调用拓扑"></div>
+            <aside id="trace-node-detail" class="trace-node-detail" aria-live="polite">选择一个节点查看脱敏 Evidence。</aside>
+          </div>
+          <div id="trace-tree" class="trace-tree" hidden></div>
+        </section>
+      </section>
+    </section>
+  </main>
+  <script src="trace-topology.js"></script>
+  <script src="console-list-query.js"></script>
+  <script src="console-options-loader.js"></script>
+  <script src="blackbox-countdown.js"></script>
+  <script src="console.js"></script>
+</body>
+</html>

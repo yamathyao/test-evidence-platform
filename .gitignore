@@ -1,0 +1,25 @@
+# Build outputs
+**/target/
+**/out/
+*.class
+*.jar
+*.log
+*.pid
+*.hprof
+
+# Local runtime configuration and credentials
+**/application-dev.properties
+**/application-dev.yml
+**/application-dev.yaml
+.env
+.env.*
+!.env.example
+
+# IDE and local workflow files
+.idea/
+.vscode/
+*.iml
+.superpowers/
+.github-build-verify/
+node_modules/
+coverage/

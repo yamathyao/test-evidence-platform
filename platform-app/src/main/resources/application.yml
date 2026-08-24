@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: test-evidence-platform
+  datasource:
+    url: ${TEST_PLATFORM_DB_URL}
+    username: ${TEST_PLATFORM_DB_USERNAME}
+    password: ${TEST_PLATFORM_DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+test-evidence:
+  agent-token: ${TEST_EVIDENCE_AGENT_TOKEN}
+  blackbox-settlement-fixed-delay-ms: ${TEST_EVIDENCE_BLACKBOX_SETTLEMENT_FIXED_DELAY_MS:1000}
+  blackbox-drain-period-seconds: ${TEST_EVIDENCE_BLACKBOX_DRAIN_PERIOD_SECONDS:10}
+  assertion-mysql:
+    url: ${TEST_ASSERTION_MYSQL_URL:}
+    username: ${TEST_ASSERTION_MYSQL_USERNAME:}
+    password: ${TEST_ASSERTION_MYSQL_PASSWORD:}
