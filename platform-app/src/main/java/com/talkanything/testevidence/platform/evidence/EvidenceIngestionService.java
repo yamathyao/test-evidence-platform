@@ -12,16 +12,21 @@ import org.springframework.transaction.annotation.Transactional;
 class EvidenceIngestionService {
     private final EvidenceEventRepository repository;
     private final HttpPayloadEvidenceRepository payloadRepository;
+    private final ProtocolPayloadEvidenceRepository protocolPayloadRepository;
+    private final AgentDeliveryDiagnosticRepository diagnosticRepository;
     private final TestRunService runService;
 
     EvidenceIngestionService(EvidenceEventRepository repository, HttpPayloadEvidenceRepository payloadRepository,
-                             TestRunService runService) {
+                             ProtocolPayloadEvidenceRepository protocolPayloadRepository,
+                             AgentDeliveryDiagnosticRepository diagnosticRepository, TestRunService runService) {
         this.repository = repository; this.payloadRepository = payloadRepository;
-        this.runService = runService;
+        this.protocolPayloadRepository = protocolPayloadRepository;
+        this.diagnosticRepository = diagnosticRepository; this.runService = runService;
     }
 
     @Transactional
-    int ingest(List<EvidenceController.EvidenceRequest> events) {
+    int ingest(List<EvidenceController.EvidenceRequest> events,
+               List<EvidenceController.AgentDiagnosticRequest> diagnostics) {
         if (events == null || events.isEmpty() || events.size() > 100) {
             throw new IllegalArgumentException("Evidence batch must contain 1 to 100 events");
         }
@@ -38,8 +43,33 @@ class EvidenceIngestionService {
                     event.jdbcParameters()));
             if (event.httpPayload() != null) payloadRepository.save(new HttpPayloadEvidence(saved, event.httpPayload(),
                     payloadExpiry(run, Instant.now())));
+            if (event.protocolPayload() != null) protocolPayloadRepository.save(new ProtocolPayloadEvidence(saved,
+                    event.protocolPayload(), payloadExpiry(run, Instant.now())));
         }
+        if (diagnostics != null) for (EvidenceController.AgentDiagnosticRequest diagnostic : diagnostics) ingestDiagnostic(diagnostic);
         return events.size();
+    }
+
+    private void ingestDiagnostic(EvidenceController.AgentDiagnosticRequest diagnostic) {
+        validate(diagnostic);
+        TestRun run = runService.find(diagnostic.testRunId());
+        if (!run.getProfileId().equals(diagnostic.profileId()) || run.getProfileVersion() != diagnostic.profileVersion()) {
+            throw new IllegalStateException("Diagnostic profile does not match test run");
+        }
+        AgentDeliveryDiagnostic value = diagnosticRepository.findByTestRunIdAndServiceName(run.getId(), diagnostic.serviceName())
+                .orElseGet(() -> new AgentDeliveryDiagnostic(run, diagnostic.profileId(), diagnostic.profileVersion(),
+                        diagnostic.serviceName(), 0, 0, null));
+        value.apply(diagnostic.droppedEvidenceCount(), diagnostic.deliveryFailureCount(), diagnostic.lastFailure());
+        diagnosticRepository.save(value);
+    }
+
+    private void validate(EvidenceController.AgentDiagnosticRequest diagnostic) {
+        if (diagnostic == null || diagnostic.testRunId() == null || diagnostic.profileId() == null
+                || diagnostic.profileVersion() < 1 || blank(diagnostic.serviceName())
+                || diagnostic.droppedEvidenceCount() < 0 || diagnostic.deliveryFailureCount() < 0
+                || tooLong(diagnostic.serviceName(), 160) || tooLong(diagnostic.lastFailure(), 255)) {
+            throw new IllegalArgumentException("Invalid agent delivery diagnostic");
+        }
     }
 
     private void validate(EvidenceController.EvidenceRequest event) {
@@ -60,8 +90,18 @@ class EvidenceIngestionService {
         if (event.httpPayload() != null && (!"HTTP".equals(event.protocol()) || invalidPayload(event.httpPayload()))) {
             throw new IllegalArgumentException("Invalid HTTP payload evidence");
         }
+        if (event.httpPayload() != null && event.protocolPayload() != null) {
+            throw new IllegalArgumentException("Evidence cannot contain both HTTP and protocol payloads");
+        }
+        if (event.protocolPayload() != null && invalidPayload(event.protocolPayload())) {
+            throw new IllegalArgumentException("Invalid protocol payload evidence");
+        }
     }
     private boolean invalidPayload(EvidenceController.HttpPayloadRequest payload) {
+        return blank(payload.requestStatus()) || blank(payload.responseStatus()) || utf8(payload.requestBody()) > 65_536
+                || utf8(payload.responseBody()) > 65_536 || utf8(payload.requestBody()) + utf8(payload.responseBody()) > 131_072;
+    }
+    private boolean invalidPayload(EvidenceController.ProtocolPayloadRequest payload) {
         return blank(payload.requestStatus()) || blank(payload.responseStatus()) || utf8(payload.requestBody()) > 65_536
                 || utf8(payload.responseBody()) > 65_536 || utf8(payload.requestBody()) + utf8(payload.responseBody()) > 131_072;
     }

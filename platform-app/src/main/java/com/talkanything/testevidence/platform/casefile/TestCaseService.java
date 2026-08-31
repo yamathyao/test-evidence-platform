@@ -4,6 +4,7 @@ import com.talkanything.testevidence.platform.profile.CaptureProfile;
 import com.talkanything.testevidence.platform.profile.CaptureProfileService;
 import com.talkanything.testevidence.platform.run.MysqlScalarAssertionDefinitionParser;
 import com.talkanything.testevidence.platform.evidence.HttpPayloadEvidenceRepository;
+import com.talkanything.testevidence.platform.evidence.ProtocolPayloadEvidenceRepository;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -21,12 +22,15 @@ public class TestCaseService {
     private final CaptureProfileService profileService;
     private final MysqlScalarAssertionDefinitionParser mysqlScalarDefinitionParser;
     private final HttpPayloadEvidenceRepository payloadRepository;
+    private final ProtocolPayloadEvidenceRepository protocolPayloadRepository;
 
     TestCaseService(TestCaseRepository repository, CaptureProfileService profileService,
-                    MysqlScalarAssertionDefinitionParser mysqlScalarDefinitionParser, HttpPayloadEvidenceRepository payloadRepository) {
+                    MysqlScalarAssertionDefinitionParser mysqlScalarDefinitionParser, HttpPayloadEvidenceRepository payloadRepository,
+                    ProtocolPayloadEvidenceRepository protocolPayloadRepository) {
         this.repository = repository; this.profileService = profileService;
         this.mysqlScalarDefinitionParser = mysqlScalarDefinitionParser;
         this.payloadRepository = payloadRepository;
+        this.protocolPayloadRepository = protocolPayloadRepository;
     }
 
     @Transactional
@@ -79,6 +83,9 @@ public class TestCaseService {
         java.time.Instant now = java.time.Instant.now();
         testCase.complete(now);
         for (var payload : payloadRepository.findByEvidenceEvent_TestRun_TestCase_IdAndExpiresAtAfter(id, now)) {
+            payload.shortenExpiry(now.plusSeconds(7L * 86400L));
+        }
+        for (var payload : protocolPayloadRepository.findByEvidenceEvent_TestRun_TestCase_IdAndExpiresAtAfter(id, now)) {
             payload.shortenExpiry(now.plusSeconds(7L * 86400L));
         }
         return testCase;

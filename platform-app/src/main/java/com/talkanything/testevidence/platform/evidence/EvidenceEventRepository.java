@@ -11,6 +11,8 @@ public interface EvidenceEventRepository extends JpaRepository<EvidenceEvent, UU
     List<EvidenceEvent> findByTestRunIdOrderByEventTimeAscIdAsc(UUID testRunId);
     Optional<EvidenceEvent> findFirstByTestRunIdOrderByReceivedAtDescIdDesc(UUID testRunId);
     Optional<EvidenceEvent> findByTestRunIdAndSpanId(UUID testRunId, String spanId);
+    List<EvidenceEvent> findByTestRunIdAndTraceIdAndParentSpanIdAndProtocolAndDirectionOrderByEventTimeAscIdAsc(
+            UUID testRunId, String traceId, String parentSpanId, String protocol, String direction);
     @Query("select count(distinct event.traceId) from EvidenceEvent event where event.testRun.id = :runId")
     long countDistinctTraceIdsByTestRunId(@Param("runId") UUID runId);
     void deleteByTestRun_Id(UUID runId);

@@ -9,11 +9,12 @@ public final class DubboProviderAdvice {
     public static DubboEvidenceRuntime.ProviderState enter(@Advice.Argument(0) Object invoker,
                                                             @Advice.Argument(1) Object invocation) {
         return DubboEvidenceRuntime.enterProvider(DubboConsumerAdvice.attachments(invocation),
-                DubboConsumerAdvice.target(invoker, invocation));
+                DubboConsumerAdvice.target(invoker, invocation), DubboConsumerAdvice.arguments(invocation));
     }
 
     @Advice.OnMethodExit(onThrowable = Throwable.class, suppress = Throwable.class)
-    public static void exit(@Advice.Enter DubboEvidenceRuntime.ProviderState state, @Advice.Thrown Throwable failure) {
-        DubboEvidenceRuntime.completeProvider(state, failure);
+    public static void exit(@Advice.Enter DubboEvidenceRuntime.ProviderState state, @Advice.Return Object result,
+                            @Advice.Thrown Throwable failure) {
+        DubboEvidenceRuntime.completeProvider(state, result, failure);
     }
 }

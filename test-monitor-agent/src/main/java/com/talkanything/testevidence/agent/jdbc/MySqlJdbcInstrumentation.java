@@ -32,6 +32,14 @@ public final class MySqlJdbcInstrumentation {
                         .visit(Advice.to(MySqlStatementExecutionAdvice.class)
                                 .on(named("execute").or(named("executeQuery")).or(named("executeUpdate"))
                                         .or(named("executeBatch")).or(named("executeLargeUpdate")))))
+                .type(named("com.mysql.jdbc.StatementImpl")
+                        .or(named("com.mysql.cj.jdbc.StatementImpl"))
+                        .or(named("com.zaxxer.hikari.pool.HikariProxyStatement"))
+                        .or(named("com.alibaba.druid.pool.DruidPooledStatement")))
+                .transform((builder, type, loader, module, domain) -> builder
+                        .visit(Advice.to(JdbcStatementExecutionAdvice.class)
+                                .on(named("execute").or(named("executeQuery")).or(named("executeUpdate"))
+                                        .or(named("executeBatch")).or(named("executeLargeUpdate")))))
                 .installOn(instrumentation);
     }
 }

@@ -10,6 +10,7 @@ public final class DubboContextPropagation {
     private static final String PROFILE_VERSION = "x-test-profile-version";
     private static final String TRACE_ID = "x-test-trace-id";
     private static final String PARENT_SPAN_ID = "x-test-parent-span-id";
+    private static final String PAYLOAD_CAPTURE = "x-test-capture-protocol-payload";
 
     private DubboContextPropagation() { }
 
@@ -21,6 +22,7 @@ public final class DubboContextPropagation {
         putIfAbsent(attachments, PROFILE_VERSION, Integer.toString(context.profileVersion()));
         putIfAbsent(attachments, TRACE_ID, context.traceId());
         putIfAbsent(attachments, PARENT_SPAN_ID, context.spanId());
+        putIfAbsent(attachments, PAYLOAD_CAPTURE, Boolean.toString(context.payloadCaptureEnabled()));
         return true;
     }
 
@@ -32,10 +34,12 @@ public final class DubboContextPropagation {
         String version = attachments.get(PROFILE_VERSION);
         String traceId = attachments.get(TRACE_ID);
         String parentSpanId = attachments.get(PARENT_SPAN_ID);
+        boolean payloadCaptureEnabled = "true".equals(attachments.get(PAYLOAD_CAPTURE));
         if (blank(runId) || blank(caseId) || blank(profileId) || blank(version) || blank(traceId) || blank(parentSpanId)) return null;
         try {
             int profileVersion = Integer.parseInt(version);
-            return profileVersion > 0 ? new Metadata(runId, caseId, profileId, profileVersion, traceId, parentSpanId) : null;
+            return profileVersion > 0 ? new Metadata(runId, caseId, profileId, profileVersion, traceId, parentSpanId,
+                    payloadCaptureEnabled) : null;
         } catch (NumberFormatException ignored) { return null; }
     }
 
@@ -65,14 +69,17 @@ public final class DubboContextPropagation {
         private final int profileVersion;
         private final String traceId;
         private final String parentSpanId;
+        private final boolean payloadCaptureEnabled;
 
-        public Metadata(String runId, String caseId, String profileId, int profileVersion, String traceId, String parentSpanId) {
+        public Metadata(String runId, String caseId, String profileId, int profileVersion, String traceId, String parentSpanId,
+                        boolean payloadCaptureEnabled) {
             this.runId = runId;
             this.caseId = caseId;
             this.profileId = profileId;
             this.profileVersion = profileVersion;
             this.traceId = traceId;
             this.parentSpanId = parentSpanId;
+            this.payloadCaptureEnabled = payloadCaptureEnabled;
         }
 
         public String runId() { return runId; }
@@ -81,5 +88,6 @@ public final class DubboContextPropagation {
         public int profileVersion() { return profileVersion; }
         public String traceId() { return traceId; }
         public String parentSpanId() { return parentSpanId; }
+        public boolean payloadCaptureEnabled() { return payloadCaptureEnabled; }
     }
 }

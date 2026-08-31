@@ -5,7 +5,7 @@
   const blackboxCountdown = window.BlackboxCountdown;
   const state = {
     profiles: [], cases: [], runs: [], currentRun: null, currentTrace: null,
-    profileOptions: [], caseOptions: [], traceLayout: null, selectedSpanId: null, traceView: 'topology', pollTimer: null,
+    profileOptions: [], caseOptions: [], traceLayout: null, selectedSpanId: null, rootTracePage: 0, treeRootTracePage: 0, traceView: 'topology', pollTimer: null,
     activeBlackboxRunId: null, blackboxPollTimer: null,
     payloadRequest: null, payloadCache: new Map(), payloadViews: new Map(), unavailablePayloads: new Set(), blackboxCountdownStop: null,
     lists: { profiles: listQuery.createListQuery(), cases: listQuery.createListQuery(), runs: listQuery.createListQuery() }
@@ -213,13 +213,16 @@
   async function showRun(id) {
     try {
       const [run, trace] = await Promise.all([api(`/api/runs/${id}`), api(`/api/runs/${id}/trace`)]);
+      const changingRun = state.currentRun?.id !== run.id;
       state.currentRun = run;
       state.currentTrace = trace;
       state.selectedSpanId = null;
+      if (changingRun) { state.rootTracePage = 0; state.treeRootTracePage = 0; }
       if (state.payloadRequest) state.payloadRequest.abort();
       state.payloadRequest = null; state.payloadCache.clear(); state.payloadViews.clear(); state.unavailablePayloads.clear();
       byId('result-summary').textContent = `${run.status} · ${run.failureReason || '等待证据或已成功'}`;
       renderCaseSnapshot(run);
+      renderEvidenceDeliveryDiagnostics(run);
       renderAssertions(run.assertionResults);
       renderTrace(trace.roots);
       document.querySelector('[data-view="result"]').click();
@@ -242,6 +245,25 @@
     if (snapshot.assertions?.length) appendDetail(panel, '断言', snapshot.assertions.map((item) => item.type).join('，'));
   }
 
+  function renderEvidenceDeliveryDiagnostics(run) {
+    const panel = byId('run-evidence-delivery-diagnostics');
+    const diagnostics = run.evidenceDeliveryDiagnostics;
+    panel.replaceChildren();
+    if (!diagnostics || (!diagnostics.droppedEvidenceCount && !diagnostics.deliveryFailureCount)) {
+      panel.hidden = true;
+      return;
+    }
+    panel.hidden = false;
+    panel.append(element('h2', '', 'Evidence 投递诊断'));
+    appendDetail(panel, '丢弃事件', diagnostics.droppedEvidenceCount);
+    appendDetail(panel, '投递失败批次', diagnostics.deliveryFailureCount);
+    (diagnostics.agents || []).forEach((agent) => {
+      const detail = `丢弃 ${agent.droppedEvidenceCount} · 失败 ${agent.deliveryFailureCount}`
+        + (agent.lastFailure ? ` · 最近失败 ${agent.lastFailure}` : '');
+      appendDetail(panel, agent.serviceName, detail);
+    });
+  }
+
   function renderAssertions(results) {
     renderList(byId('assertion-list'), results, (result) => {
       const row = element('div', `row ${result.status}`);
@@ -255,21 +277,83 @@
     });
   }
 
+  function rootTraceLabel(root, index) {
+    const action = root.httpMethod ? `${root.httpMethod} ${root.target || ''}` : `${root.protocol || '-'} ${root.target || ''}`;
+    return `Trace ${index + 1} · ${action.trim() || '未命名链路'}`;
+  }
+
+  function renderTopologyRootPager(roots) {
+    const availableRoots = roots || [];
+    const selection = topology.selectRootTracePage(availableRoots, state.rootTracePage);
+    state.rootTracePage = selection.page;
+    const pager = byId('topology-root-pager');
+    pager.hidden = selection.pageCount <= 1;
+    byId('topology-root-previous').disabled = selection.page === 0;
+    byId('topology-root-next').disabled = selection.page === selection.pageCount - 1;
+    byId('topology-root-page').textContent = selection.pageCount ? `链路 ${selection.page + 1} / ${selection.pageCount}` : '';
+    const select = byId('topology-root-select');
+    select.replaceChildren();
+    availableRoots.forEach((root, index) => {
+      const item = element('option', '', rootTraceLabel(root, index));
+      item.value = String(index);
+      item.selected = index === selection.page;
+      select.append(item);
+    });
+    return selection;
+  }
+
+  function setTopologyRootPage(page) {
+    const roots = state.currentTrace?.roots || [];
+    state.rootTracePage = topology.selectRootTracePage(roots, page).page;
+    state.selectedSpanId = null;
+    renderActiveTraceView();
+  }
+
+  function renderTreeRootPager(roots) {
+    const availableRoots = roots || [];
+    const selection = topology.selectRootTracePage(availableRoots, state.treeRootTracePage);
+    state.treeRootTracePage = selection.page;
+    const pager = byId('tree-root-pager');
+    pager.hidden = selection.pageCount <= 1;
+    byId('tree-root-previous').disabled = selection.page === 0;
+    byId('tree-root-next').disabled = selection.page === selection.pageCount - 1;
+    byId('tree-root-page').textContent = selection.pageCount ? `链路 ${selection.page + 1} / ${selection.pageCount}` : '';
+    const select = byId('tree-root-select');
+    select.replaceChildren();
+    availableRoots.forEach((root, index) => {
+      const item = element('option', '', rootTraceLabel(root, index));
+      item.value = String(index);
+      item.selected = index === selection.page;
+      select.append(item);
+    });
+    return selection;
+  }
+
+  function setTreeRootPage(page) {
+    const roots = state.currentTrace?.roots || [];
+    state.treeRootTracePage = topology.selectRootTracePage(roots, page).page;
+    state.selectedSpanId = null;
+    renderActiveTraceView();
+  }
+
   function renderTrace(roots) {
     const graph = topology.buildSpanGraph(roots || []);
     state.traceLayout = topology.layoutSpanGraph(graph);
-    renderTraceTree(roots || []);
     renderActiveTraceView();
   }
 
   function renderTraceTree(roots) {
     const tree = byId('trace-tree');
     tree.replaceChildren();
-    if (!roots.length) tree.append(element('div', 'empty', '尚未接收到链路证据'));
-    roots.forEach((node, index) => {
+    const selection = renderTreeRootPager(roots);
+    if (!selection.roots.length) {
+      tree.append(element('div', 'empty', '尚未接收到链路证据'));
+      return;
+    }
+    selection.roots.forEach((node) => {
       const group = element('section', 'root-trace');
       const action = node.httpMethod ? `${node.httpMethod} ${node.target || ''}` : `${node.protocol || '-'} ${node.target || ''}`;
-      group.append(element('h3', 'root-trace-title', `Trace ${index + 1} · ${action.trim()}`));
+      group.append(element('h3', 'root-trace-title', `Trace ${selection.page + 1} · ${action.trim()}`));
       group.append(traceNode(node, 0));
       tree.append(group);
     });
@@ -315,17 +399,20 @@
     });
     byId('trace-tree').hidden = view !== 'tree';
     byId('trace-layout').hidden = view === 'tree';
+    byId('topology-root-pager').hidden = view !== 'topology' || (state.currentTrace?.roots || []).length <= 1;
+    byId('tree-root-pager').hidden = view !== 'tree' || (state.currentTrace?.roots || []).length <= 1;
     if (state.currentTrace) renderActiveTraceView();
   }
 
   function renderTopology(roots) {
-    const graph = topology.limitRenderableGraph(topology.buildSpanGraph(roots), 500);
+    const selection = renderTopologyRootPager(roots);
+    const graph = topology.limitRenderableGraph(topology.buildSpanGraph(selection.roots), 500);
     const layout = topology.layoutSpanGraph(graph);
     const warning = byId('topology-warning');
     warning.hidden = !graph.truncated;
     warning.textContent = graph.truncated ? '调用拓扑仅展示前 500 个 Span；树形明细保留完整 Evidence。' : '';
     renderSvgGraph(layout);
-    const selected = layout.nodes.find((item) => item.id === state.selectedSpanId) || layout.nodes[0] || null;
+    const selected = layout.nodes.find((item) => item.id === state.selectedSpanId) || null;
     selectTraceNode(selected, state.traceLayout || layout);
   }
 
@@ -456,17 +543,17 @@
     if (parent) appendDetail(panel, '父节点', parent.instanceLabel);
     appendDetail(panel, '子节点数', (layout?.edges.filter((edge) => edge.sourceId === node.id).length || 0));
     appendDetail(panel, '同服务实例数', layout?.nodes.filter((item) => item.serviceName === node.serviceName).length || 1);
-    if (node.protocol === 'HTTP') renderPayloadDetail(panel, node, layout);
+    if (node.protocol === 'HTTP' || node.protocol === 'DUBBO') renderPayloadDetail(panel, node, layout);
   }
 
   function renderPayloadDetail(panel, node, layout) {
     const section = element('section', 'payload-detail');
-    section.append(element('h3', '', 'HTTP 原文'));
+    section.append(element('h3', '', node.protocol === 'HTTP' ? 'HTTP 原文' : '调用载荷'));
     const actions = element('div', 'payload-actions');
     const content = element('div', 'payload-content');
     const views = state.payloadViews.get(node.id) || { request: false, response: false };
-    actions.append(payloadButton('request', '入参', node, layout, views, content),
-            payloadButton('response', '出参', node, layout, views, content));
+    actions.append(payloadButton('request', node.protocol === 'DUBBO' ? '方法参数' : '入参', node, layout, views, content),
+            payloadButton('response', node.protocol === 'DUBBO' ? '返回值' : '出参', node, layout, views, content));
     section.append(actions);
     renderPayloadContent(content, node, views);
     section.append(content); panel.append(section);
@@ -488,7 +575,7 @@
 
   function renderPayloadContent(content, node, views) {
     if (state.unavailablePayloads.has(node.id)) {
-      content.append(element('div', 'meta', '本次运行未采集 HTTP 原文，或原文已清理。'));
+      content.append(element('div', 'meta', node.protocol === 'HTTP' ? '本次运行未采集 HTTP 原文，或原文已清理。' : '本次运行未采集调用载荷，或载荷已清理。'));
       return;
     }
     const payload = state.payloadCache.get(node.id);
@@ -496,18 +583,22 @@
       content.append(element('div', 'meta', '选择入参或出参后按需加载，正文不会默认展示。'));
       return;
     }
+    if (payload.sourceSpanId && payload.sourceSpanId !== node.id) {
+      content.append(element('div', 'meta', '原文来自直接下游 HTTP SERVER Evidence。'));
+    }
     if (!views.request && !views.response) return;
-    if (views.request) appendPayloadBlock(content, '入参', payload.requestContentType, payload.requestStatus,
+    if (views.request) appendPayloadBlock(content, node.protocol === 'DUBBO' ? '方法参数' : '入参', payload.requestContentType, payload.requestStatus,
             payload.requestTruncated, payload.requestBody);
-    if (views.response) appendPayloadBlock(content, '出参', payload.responseContentType, payload.responseStatus,
+    if (views.response) appendPayloadBlock(content, node.protocol === 'DUBBO' ? '返回值' : '出参', payload.responseContentType, payload.responseStatus,
             payload.responseTruncated, payload.responseBody);
   }
 
   function appendPayloadBlock(content, label, contentType, status, truncated, body) {
     const block = element('details', 'payload-block'); block.open = true;
     block.append(element('summary', '', label));
-    block.append(element('div', 'meta', [contentType || '未知类型', status || '无状态', truncated ? '已截断' : ''].filter(Boolean).join(' · ')));
-    if (body == null) block.append(element('div', 'meta', '没有可展示的正文。'));
+    const type = status === 'NOT_APPLICABLE' ? '无请求正文' : contentType || '未知类型';
+    block.append(element('div', 'meta', [type, status || '无状态', truncated ? '已截断' : ''].filter(Boolean).join(' · ')));
+    if (body == null) block.append(element('div', 'meta', status === 'NOT_APPLICABLE' ? '此 HTTP 请求不包含正文。' : '没有可展示的正文。'));
     else { const pre = element('pre', 'payload-body'); pre.textContent = body; block.append(pre); }
     content.append(block);
   }
@@ -518,7 +609,7 @@
     if (state.payloadRequest) state.payloadRequest.abort();
     state.payloadRequest = new AbortController();
     try {
-      const payload = await api(`/api/runs/${state.currentRun.id}/trace/http-payloads/${node.id}`, { signal: state.payloadRequest.signal });
+      const payload = await api(`/api/runs/${state.currentRun.id}/trace/payloads/${node.id}`, { signal: state.payloadRequest.signal });
       state.payloadCache.set(node.id, payload); return true;
     } catch (error) {
       if (error.name !== 'AbortError') state.unavailablePayloads.add(node.id);
@@ -537,29 +628,60 @@
     const canvas = byId('topology-canvas'); const warning = byId('topology-warning');
     canvas.replaceChildren(); warning.hidden = true;
     if (!overview.nodes.length) return canvas.append(element('div', 'empty', '尚未接收到链路证据'));
-    const width = Math.max(520, overview.nodes.length * 230 + 40);
-    const svg = svgElement('svg'); svg.setAttribute('width', width); svg.setAttribute('height', '290');
-    svg.setAttribute('viewBox', `0 0 ${width} 290`); svg.setAttribute('aria-label', '服务依赖概览');
+    const nodeWidth = 230;
+    const nameLines = new Map(overview.nodes.map((name) => [name, splitOverviewServiceName(name)]));
+    const nodeHeight = Math.max(76, Math.max(...[...nameLines.values()].map((lines) => lines.length)) * 16 + 48);
+    const relationCounts = overview.edges.reduce((counts, edge) => {
+      const key = `${edge.source}\u0000${edge.target}`;
+      counts.set(key, (counts.get(key) || 0) + 1);
+      return counts;
+    }, new Map());
+    const parallelRelationSlots = Math.max(0, ...[...relationCounts.values()].map((count) => count - 1));
+    const verticalShift = parallelRelationSlots * 56;
+    const height = 420 + parallelRelationSlots * 112;
+    const width = Math.max(560, overview.nodes.length * 270 + 60);
+    const svg = svgElement('svg'); svg.setAttribute('width', width); svg.setAttribute('height', height);
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`); svg.setAttribute('aria-label', '服务依赖概览');
     appendArrowMarker(svg, 'overview-arrow');
-    const positions = new Map(overview.nodes.map((name, index) => [name, { x: index * 230 + 40, y: 124 }]));
-    overview.edges.forEach((edge) => appendOverviewEdge(svg, edge, positions));
-    overview.nodes.forEach((name) => appendOverviewNode(svg, name, positions.get(name), graph));
+    const positions = new Map(overview.nodes.map((name, index) => [name, { x: index * 270 + 30, y: 164 + verticalShift }]));
+    const relationSlots = new Map();
+    overview.edges.forEach((edge) => {
+      const key = `${edge.source}\u0000${edge.target}`;
+      const slot = relationSlots.get(key) || 0;
+      relationSlots.set(key, slot + 1);
+      appendOverviewEdge(svg, edge, positions, nodeWidth, nodeHeight, slot, verticalShift);
+    });
+    overview.nodes.forEach((name) => appendOverviewNode(svg, name, positions.get(name), graph, nodeWidth, nodeHeight, nameLines.get(name)));
     canvas.append(svg);
   }
 
-  function appendOverviewEdge(svg, edge, positions) {
+  function splitOverviewServiceName(name) {
+    const maxLength = 28;
+    const chunks = String(name).match(new RegExp(`.{1,${maxLength}}`, 'g')) || ['-'];
+    return chunks;
+  }
+
+  function appendOverviewEdge(svg, edge, positions, nodeWidth, nodeHeight, slot, verticalShift) {
     const from = positions.get(edge.source); const to = positions.get(edge.target);
     if (!from || !to) return;
     const path = svgElement('path', 'topology-edge overview-edge');
     const label = `${edge.count} 次${edge.failedCount ? `，失败 ${edge.failedCount}` : ''}`;
+    let cardCenterX;
+    let cardCenterY;
     if (edge.source === edge.target) {
-      path.setAttribute('d', `M ${from.x + 140} ${from.y + 24} C ${from.x + 195} ${from.y + 24}, ${from.x + 195} ${from.y - 42}, ${from.x + 90} ${from.y - 42} C ${from.x + 28} ${from.y - 42}, ${from.x + 28} ${from.y - 8}, ${from.x + 40} ${from.y}`);
-      svgText(svg, label, from.x + 58, from.y - 52, 'overview-edge-label');
+      const loopTop = from.y - 54 - slot * 54;
+      path.setAttribute('d', `M ${from.x + nodeWidth - 42} ${from.y + 24} C ${from.x + nodeWidth + 18} ${from.y + 24}, ${from.x + nodeWidth + 18} ${loopTop}, ${from.x + nodeWidth / 2} ${loopTop} C ${from.x + 18} ${loopTop}, ${from.x + 18} ${from.y - 8}, ${from.x + 42} ${from.y}`);
+      cardCenterX = from.x + nodeWidth / 2;
+      cardCenterY = loopTop - 34;
     } else {
       const direction = from.x < to.x ? 1 : -1;
-      const offset = direction * 36;
-      path.setAttribute('d', `M ${from.x + (direction > 0 ? 180 : 0)} ${from.y + 32} Q ${(from.x + to.x + 180) / 2} ${from.y + offset}, ${to.x + (direction > 0 ? 0 : 180)} ${to.y + 32}`);
-      svgText(svg, label, (from.x + to.x + 180) / 2 - 18, from.y + offset - 6, 'overview-edge-label');
+      const startY = from.y + nodeHeight / 2;
+      const arcY = direction > 0 ? 320 + verticalShift + slot * 52 : 92 + verticalShift - slot * 52;
+      const startX = from.x + (direction > 0 ? nodeWidth : 0);
+      const endX = to.x + (direction > 0 ? 0 : nodeWidth);
+      path.setAttribute('d', `M ${startX} ${startY} Q ${(startX + endX) / 2} ${arcY}, ${endX} ${to.y + nodeHeight / 2}`);
+      cardCenterX = (startX + endX) / 2;
+      cardCenterY = direction > 0 ? arcY + 12 : arcY - 12;
     }
     path.setAttribute('marker-end', 'url(#overview-arrow)'); path.setAttribute('tabindex', '0'); path.setAttribute('role', 'button');
     path.setAttribute('aria-label', `${edge.source} 到 ${edge.target}，${label}`);
@@ -568,15 +690,36 @@
       if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); renderOverviewEdgeDetail(edge); }
     });
     svg.append(path);
+    appendOverviewRelationCard(svg, edge, cardCenterX, cardCenterY);
   }
 
-  function appendOverviewNode(svg, name, point, graph) {
+  function appendOverviewRelationCard(svg, edge, centerX, centerY) {
+    const group = svgElement('g', 'overview-relation-card');
+    const lines = [`${edge.count} 次调用`, `${edge.protocol || '-'} / ${edge.direction || '-'}`];
+    if (edge.failedCount) lines.push(`失败 ${edge.failedCount}`);
+    const height = 18 + lines.length * 15;
+    const rect = svgElement('rect');
+    rect.setAttribute('x', String(centerX - 60)); rect.setAttribute('y', String(centerY - height / 2));
+    rect.setAttribute('width', '120'); rect.setAttribute('height', String(height)); rect.setAttribute('rx', '3');
+    group.append(rect);
+    lines.forEach((line, index) => svgText(group, line, centerX, centerY - height / 2 + 16 + index * 15, 'overview-relation-card-text'));
+    group.setAttribute('tabindex', '0'); group.setAttribute('role', 'button');
+    group.setAttribute('aria-label', `${edge.source} 到 ${edge.target}，${lines.join('，')}`);
+    group.addEventListener('click', () => renderOverviewEdgeDetail(edge));
+    group.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); renderOverviewEdgeDetail(edge); }
+    });
+    svg.append(group);
+  }
+
+  function appendOverviewNode(svg, name, point, graph, nodeWidth, nodeHeight, nameLines) {
     const group = svgElement('g', 'topology-node overview-node');
     group.setAttribute('transform', `translate(${point.x} ${point.y})`); group.setAttribute('tabindex', '0');
     group.setAttribute('role', 'button'); group.setAttribute('aria-label', name);
-    const rect = svgElement('rect'); rect.setAttribute('width', '180'); rect.setAttribute('height', '64'); rect.setAttribute('rx', '3');
-    group.append(rect); svgText(group, truncate(name), 12, 29, 'topology-node-title');
-    svgText(group, `${graph.nodes.filter((item) => topology.laneName(item) === name).length} 个 Span 实例`, 12, 49, 'topology-node-meta');
+    const rect = svgElement('rect'); rect.setAttribute('width', String(nodeWidth)); rect.setAttribute('height', String(nodeHeight)); rect.setAttribute('rx', '3');
+    group.append(rect);
+    nameLines.forEach((line, index) => svgText(group, line, 12, 25 + index * 16, 'topology-node-title'));
+    svgText(group, `${graph.nodes.filter((item) => topology.laneName(item) === name).length} 个 Span 实例`, 12, nodeHeight - 15, 'topology-node-meta');
     group.addEventListener('click', () => renderOverviewServiceDetail(name, graph));
     group.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); renderOverviewServiceDetail(name, graph); }
@@ -834,6 +977,12 @@
   document.querySelectorAll('.trace-view').forEach((button) => {
     button.addEventListener('click', () => setTraceView(button.dataset.traceView));
   });
+  byId('topology-root-previous').addEventListener('click', () => setTopologyRootPage(state.rootTracePage - 1));
+  byId('topology-root-next').addEventListener('click', () => setTopologyRootPage(state.rootTracePage + 1));
+  byId('topology-root-select').addEventListener('change', (event) => setTopologyRootPage(Number(event.target.value)));
+  byId('tree-root-previous').addEventListener('click', () => setTreeRootPage(state.treeRootTracePage - 1));
+  byId('tree-root-next').addEventListener('click', () => setTreeRootPage(state.treeRootTracePage + 1));
+  byId('tree-root-select').addEventListener('change', (event) => setTreeRootPage(Number(event.target.value)));
   setTraceView('topology');
   toggleCaseFields();
   refresh();

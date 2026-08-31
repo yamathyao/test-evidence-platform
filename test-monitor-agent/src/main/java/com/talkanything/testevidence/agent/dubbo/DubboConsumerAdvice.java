@@ -8,12 +8,13 @@ public final class DubboConsumerAdvice {
 
     @Advice.OnMethodEnter(suppress = Throwable.class)
     public static DubboEvidenceRuntime.ConsumerState enter(@Advice.This Object invoker, @Advice.Argument(0) Object invocation) {
-        return DubboEvidenceRuntime.enterConsumer(attachments(invocation), target(invoker, invocation));
+        return DubboEvidenceRuntime.enterConsumer(attachments(invocation), target(invoker, invocation), arguments(invocation));
     }
 
     @Advice.OnMethodExit(onThrowable = Throwable.class, suppress = Throwable.class)
-    public static void exit(@Advice.Enter DubboEvidenceRuntime.ConsumerState state, @Advice.Thrown Throwable failure) {
-        DubboEvidenceRuntime.completeConsumer(state, failure);
+    public static void exit(@Advice.Enter DubboEvidenceRuntime.ConsumerState state, @Advice.Return Object result,
+                            @Advice.Thrown Throwable failure) {
+        DubboEvidenceRuntime.completeConsumer(state, result, failure);
     }
 
     @SuppressWarnings("unchecked")
@@ -36,6 +37,11 @@ public final class DubboConsumerAdvice {
         }
         if (service != null && method != null) return service + "#" + method;
         return "dubbo#unknown";
+    }
+
+    public static Object[] arguments(Object invocation) {
+        Object value = invoke(invocation, "getArguments");
+        return value instanceof Object[] ? (Object[]) value : new Object[0];
     }
 
     private static Object invoke(Object target, String methodName) {

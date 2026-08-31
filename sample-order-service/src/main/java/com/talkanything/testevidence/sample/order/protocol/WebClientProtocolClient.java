@@ -1,0 +1,3 @@
+package com.talkanything.testevidence.sample.order.protocol;
+import org.springframework.stereotype.Component;import org.springframework.web.reactive.function.client.WebClient;
+@Component public class WebClientProtocolClient implements ProtocolClient { private final ProtocolClientSupport support; public WebClientProtocolClient(ProtocolClientSupport support){this.support=support;} public String name(){return "webclient";} public ProtocolEchoResponse invoke(ProtocolInvocation r){return WebClient.create().get().uri(support.uri(r)).retrieve().bodyToMono(ProtocolEchoResponse.class).block();}}

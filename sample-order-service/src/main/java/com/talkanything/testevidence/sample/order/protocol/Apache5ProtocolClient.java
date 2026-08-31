@@ -1,0 +1,3 @@
+package com.talkanything.testevidence.sample.order.protocol;
+import org.apache.hc.client5.http.classic.methods.HttpGet;import org.apache.hc.client5.http.impl.classic.HttpClients;import org.springframework.stereotype.Component;import java.io.IOException;
+@Component public class Apache5ProtocolClient implements ProtocolClient { private final ProtocolClientSupport support; public Apache5ProtocolClient(ProtocolClientSupport support){this.support=support;} public String name(){return "apache5";} public ProtocolEchoResponse invoke(ProtocolInvocation r){try(var c=HttpClients.createDefault()){return c.execute(new HttpGet(support.uri(r)), x -> support.read(x.getCode(),x.getEntity().getContent()));}catch(IOException e){throw new IllegalStateException(e);}}}

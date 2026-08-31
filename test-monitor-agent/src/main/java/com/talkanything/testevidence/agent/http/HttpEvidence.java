@@ -35,6 +35,11 @@ public final class HttpEvidence implements EvidencePayload {
         return new HttpEvidence(context, "test", "SERVER", "GET", "/", 200, Instant.now(), 0, "");
     }
 
+    @Override public String runId() { return context.runId(); }
+    @Override public String profileId() { return context.profileId(); }
+    @Override public int profileVersion() { return context.profileVersion(); }
+    @Override public String serviceName() { return serviceName; }
+
     @Override
     public String toJson() {
         return "{\"testRunId\":\"" + q(context.runId()) + "\",\"profileId\":\"" + q(context.profileId())

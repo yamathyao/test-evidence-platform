@@ -95,3 +95,21 @@ test('reports self call and failed counts in service overview', () => {
     count: 1, failedCount: 1, spanIds: ['a2']
   }]);
 });
+
+test('selects exactly one requested root trace and clamps the page index', () => {
+  const roots = [node('one', 'A'), node('two', 'B'), node('three', 'C')];
+
+  const selection = topology.selectRootTracePage(roots, 9);
+
+  assert.equal(selection.page, 2);
+  assert.equal(selection.pageCount, 3);
+  assert.deepEqual(selection.roots.map((item) => item.spanId), ['three']);
+});
+
+test('returns an empty page for an empty root-trace collection', () => {
+  assert.deepEqual(topology.selectRootTracePage([], 3), {
+    page: 0,
+    pageCount: 0,
+    roots: []
+  });
+});

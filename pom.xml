@@ -12,6 +12,7 @@
     <modules>
         <module>platform-app</module>
         <module>test-monitor-agent</module>
+        <module>sample-dubbo-contract</module>
         <module>sample-order-service</module>
         <module>sample-fulfillment-service</module>
     </modules>

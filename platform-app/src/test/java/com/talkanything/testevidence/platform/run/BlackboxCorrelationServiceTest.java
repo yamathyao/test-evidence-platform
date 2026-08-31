@@ -9,12 +9,16 @@ import com.talkanything.testevidence.platform.profile.CaptureProfile;
 import com.talkanything.testevidence.platform.profile.CaptureProfileService;
 import java.util.List;
 import java.util.Map;
+import java.sql.Timestamp;
 import java.time.Duration;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -27,6 +31,7 @@ class BlackboxCorrelationServiceTest {
     @Autowired private TestCaseService testCaseService;
     @Autowired private CaptureProfileService profileService;
     @Autowired private ObjectMapper objectMapper;
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     @Test
     void distributesOnlyToTargetServiceAndRemainsActiveDuringCollection() throws Exception {
@@ -52,6 +57,36 @@ class BlackboxCorrelationServiceTest {
     }
 
     @Test
+    void removesExpiredActiveRule() throws Exception {
+        TestRun run = runService.startBlackbox(browserCase(), Map.of("orderNo", "ORD-4", "tenantId", "tenant-a"), null);
+        BlackboxCorrelationRule rule = activeRule(run);
+        jdbcTemplate.update("update blackbox_correlation_rule set expires_at = ? where id = ?",
+                Timestamp.from(Instant.now().minusSeconds(1)), rule.getId());
+
+        service.cleanExpired();
+
+        assertTrue(repository.findById(rule.getId()).isEmpty());
+    }
+
+    @Test
+    void retainsBoundRuleUntilRetentionDeadlineThenRemovesIt() throws Exception {
+        TestRun run = runService.startBlackbox(browserCase(), Map.of("orderNo", "ORD-5", "tenantId", "tenant-a"), null);
+        BlackboxCorrelationRule active = activeRule(run);
+        service.bind(run.getId());
+        assertEquals(BlackboxCorrelationRuleStatus.BOUND,
+                repository.findById(active.getId()).orElseThrow().getStatus());
+
+        jdbcTemplate.update("update blackbox_correlation_rule set expires_at = ? where id = ?",
+                Timestamp.from(Instant.now().plusSeconds(60)), active.getId());
+        service.cleanExpired();
+        assertTrue(repository.findById(active.getId()).isPresent());
+
+        jdbcTemplate.update("update blackbox_correlation_rule set expires_at = ? where id = ?",
+                Timestamp.from(Instant.now().minusSeconds(1)), active.getId());
+        service.cleanExpired();
+        assertTrue(repository.findById(active.getId()).isEmpty());
+    }
+    @Test
     void keepsRuleActiveForTheWholeBrowserCaptureWindow() throws Exception {
         CaptureProfile profile = profileService.create("blackbox-window-" + System.nanoTime(), 1,
                 definition().replace("\"defaultTtlSeconds\":600", "\"defaultTtlSeconds\":60"));
@@ -64,6 +99,11 @@ class BlackboxCorrelationServiceTest {
         assertFalse(rule.getExpiresAt().isBefore(run.getStartedAt().plus(Duration.ofSeconds(1799))));
     }
 
+    private BlackboxCorrelationRule activeRule(TestRun run) {
+        List<BlackboxCorrelationRule> rules = repository.findByTestRun_IdAndStatus(run.getId(), BlackboxCorrelationRuleStatus.ACTIVE);
+        assertEquals(1, rules.size());
+        return rules.get(0);
+    }
     private TestCase browserCase() throws Exception {
         CaptureProfile profile = profileService.create("blackbox-service-" + System.nanoTime(), 1, definition());
         return testCaseService.create(new TestCaseRequest("blackbox service", profile.getId(), TriggerType.BROWSER,

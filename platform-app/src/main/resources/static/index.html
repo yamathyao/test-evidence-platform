@@ -40,12 +40,25 @@
         <div class="view-heading"><div><p class="eyebrow">03 / EVIDENCE REVIEW</p><h1>结果</h1></div><button class="icon-button" id="refresh-result" title="刷新结果">↻</button></div>
           <div id="result-summary" class="summary">选择一个运行记录以查看断言和 Trace。</div>
           <section id="run-case-snapshot" class="run-case-snapshot" hidden></section>
+          <section id="run-evidence-delivery-diagnostics" class="run-evidence-delivery-diagnostics" hidden></section>
         <div id="assertion-list" class="assertions"></div>
         <section class="trace-review" aria-label="调用链路">
           <div class="trace-toolbar" role="tablist" aria-label="链路视图">
             <button class="trace-view active" type="button" data-trace-view="topology" role="tab" aria-selected="true">调用拓扑</button>
             <button class="trace-view" type="button" data-trace-view="overview" role="tab" aria-selected="false">服务依赖概览</button>
             <button class="trace-view" type="button" data-trace-view="tree" role="tab" aria-selected="false">树形明细</button>
+          </div>
+          <div id="topology-root-pager" class="topology-root-pager" role="group" aria-label="拓扑调用链分页" hidden>
+            <button id="topology-root-previous" class="pager-icon pager-previous" type="button" aria-label="上一条调用链" title="上一条调用链"></button>
+            <span id="topology-root-page" class="topology-root-page" aria-live="polite"></span>
+            <select id="topology-root-select" class="topology-root-select" aria-label="选择调用链"></select>
+            <button id="topology-root-next" class="pager-icon pager-next" type="button" aria-label="下一条调用链" title="下一条调用链"></button>
+          </div>
+          <div id="tree-root-pager" class="topology-root-pager" role="group" aria-label="树形明细调用链分页" hidden>
+            <button id="tree-root-previous" class="pager-icon pager-previous" type="button" aria-label="上一条调用链" title="上一条调用链"></button>
+            <span id="tree-root-page" class="topology-root-page" aria-live="polite"></span>
+            <select id="tree-root-select" class="topology-root-select" aria-label="选择调用链"></select>
+            <button id="tree-root-next" class="pager-icon pager-next" type="button" aria-label="下一条调用链" title="下一条调用链"></button>
           </div>
           <div id="topology-warning" class="topology-warning" hidden></div>
           <div id="trace-layout" class="trace-layout">
