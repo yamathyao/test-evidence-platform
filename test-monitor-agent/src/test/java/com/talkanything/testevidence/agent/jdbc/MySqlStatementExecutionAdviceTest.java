@@ -39,7 +39,7 @@ class MySqlStatementExecutionAdviceTest {
         CountDownLatch delivered = new CountDownLatch(1);
         AtomicInteger jdbcEvents = new AtomicInteger();
         AsyncEvidenceReporter reporter = new AsyncEvidenceReporter(4, 1,
-                events -> countJdbcEvents(events, jdbcEvents, delivered));
+                (events, diagnostics) -> countJdbcEvents(events, jdbcEvents, delivered));
         JdbcEvidenceRuntime.initialize("order-service", reporter);
         TestContextHolder.enter("run", "case", "profile", 1);
 

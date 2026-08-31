@@ -28,7 +28,7 @@ class JdbcEvidenceRuntimeTest {
     void reportsJdbcChildSpanWithoutRawParameterValue() throws Exception {
         CountDownLatch delivered = new CountDownLatch(1);
         AtomicReference<List<EvidencePayload>> captured = new AtomicReference<List<EvidencePayload>>();
-        AsyncEvidenceReporter reporter = new AsyncEvidenceReporter(4, 1, events -> {
+        AsyncEvidenceReporter reporter = new AsyncEvidenceReporter(4, 1, (events, diagnostics) -> {
             captured.set(events);
             delivered.countDown();
         });
@@ -52,7 +52,7 @@ class JdbcEvidenceRuntimeTest {
     @Test
     void skipsConnectorMetadataQueries() throws Exception {
         CountDownLatch delivered = new CountDownLatch(1);
-        AsyncEvidenceReporter reporter = new AsyncEvidenceReporter(4, 1, events -> delivered.countDown());
+        AsyncEvidenceReporter reporter = new AsyncEvidenceReporter(4, 1, (events, diagnostics) -> delivered.countDown());
         JdbcEvidenceRuntime.initialize("order-service", reporter);
         TestContextHolder.enter("run", "case", "profile", 1);
 
@@ -67,7 +67,7 @@ class JdbcEvidenceRuntimeTest {
     @Test
     void skipsConfiguredSqlPrefix() throws Exception {
         CountDownLatch delivered = new CountDownLatch(1);
-        AsyncEvidenceReporter reporter = new AsyncEvidenceReporter(4, 1, events -> delivered.countDown());
+        AsyncEvidenceReporter reporter = new AsyncEvidenceReporter(4, 1, (events, diagnostics) -> delivered.countDown());
         JdbcEvidenceRuntime.initialize("order-service", reporter, Arrays.asList("SELECT 1"),
                 Collections.<String>emptyList());
         TestContextHolder.enter("run", "case", "profile", 1);
@@ -81,7 +81,7 @@ class JdbcEvidenceRuntimeTest {
     @Test
     void skipsConfiguredSqlRegularExpression() throws Exception {
         CountDownLatch delivered = new CountDownLatch(1);
-        AsyncEvidenceReporter reporter = new AsyncEvidenceReporter(4, 1, events -> delivered.countDown());
+        AsyncEvidenceReporter reporter = new AsyncEvidenceReporter(4, 1, (events, diagnostics) -> delivered.countDown());
         JdbcEvidenceRuntime.initialize("order-service", reporter, Collections.<String>emptyList(),
                 Arrays.asList("/\\* ping \\*/.*"));
         TestContextHolder.enter("run", "case", "profile", 1);

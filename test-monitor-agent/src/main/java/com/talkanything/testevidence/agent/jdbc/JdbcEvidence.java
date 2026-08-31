@@ -37,6 +37,11 @@ public final class JdbcEvidence implements EvidencePayload {
         return LARGE_NUMBER.matcher(STRING_LITERAL.matcher(sql).replaceAll("'?'")).replaceAll("?");
     }
 
+    @Override public String runId() { return context.runId(); }
+    @Override public String profileId() { return context.profileId(); }
+    @Override public int profileVersion() { return context.profileVersion(); }
+    @Override public String serviceName() { return serviceName; }
+
     @Override
     public String toJson() {
         return "{\"testRunId\":\"" + q(context.runId()) + "\",\"profileId\":\"" + q(context.profileId())

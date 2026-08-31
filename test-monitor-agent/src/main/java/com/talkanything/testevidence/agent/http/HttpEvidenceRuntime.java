@@ -44,6 +44,9 @@ public final class HttpEvidenceRuntime {
     public static void startPayload(TestContext context, String contentType, String contentEncoding) {
         PAYLOADS.start(context, contentType, contentEncoding);
     }
+    public static void startPayload(TestContext context, String method, String contentType, String contentEncoding) {
+        PAYLOADS.start(context, method, contentType, contentEncoding);
+    }
     public static void startDeferredPayload(String contentType, String contentEncoding) {
         PAYLOADS.startDeferred(contentType, contentEncoding);
     }

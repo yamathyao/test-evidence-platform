@@ -20,7 +20,7 @@ public final class ServletDispatchAdvice {
                     + " enabled=" + (context != null && context.payloadCaptureEnabled()));
             String contentType = header(request, "Content-Type");
             String contentEncoding = header(request, "Content-Encoding");
-            if (context != null) HttpEvidenceRuntime.startPayload(context, contentType, contentEncoding);
+            if (context != null) HttpEvidenceRuntime.startPayload(context, value(request, "getMethod"), contentType, contentEncoding);
             else if (BlackboxRequestState.mayMatchPayloadJsonBody()) {
                 HttpEvidenceRuntime.startDeferredPayload(contentType, contentEncoding);
             }

@@ -1,0 +1,3 @@
+package com.talkanything.testevidence.sample.order.protocol;
+import com.fasterxml.jackson.databind.ObjectMapper;import feign.Feign;import feign.jackson.JacksonDecoder;import org.springframework.stereotype.Component;
+@Component public class FeignProtocolClient implements ProtocolClient { private final ProtocolClientSupport support; public FeignProtocolClient(ProtocolClientSupport support){this.support=support;} public String name(){return "feign";} public ProtocolEchoResponse invoke(ProtocolInvocation r){String uri=support.uri(r);int slash=uri.indexOf("/internal/");ProtocolFeignApi api=Feign.builder().decoder(new JacksonDecoder()).target(ProtocolFeignApi.class,uri.substring(0,slash));return api.echo(r.orderNo());}}

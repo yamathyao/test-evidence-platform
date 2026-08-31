@@ -31,7 +31,7 @@ class MySqlJdbcInstrumentationTest {
     void capturesBothSupportedMysqlPreparedStatementVersions() throws Exception {
         CountDownLatch delivered = new CountDownLatch(4);
         AtomicInteger jdbcEvents = new AtomicInteger();
-        AsyncEvidenceReporter reporter = new AsyncEvidenceReporter(8, 1, events -> countJdbcEvents(events, jdbcEvents, delivered));
+        AsyncEvidenceReporter reporter = new AsyncEvidenceReporter(8, 1, (events, diagnostics) -> countJdbcEvents(events, jdbcEvents, delivered));
         JdbcEvidenceRuntime.initialize("order-service", reporter);
         Class.forName("com.mysql.jdbc.PreparedStatement");
         Class.forName("com.mysql.cj.jdbc.ClientPreparedStatement");
@@ -55,12 +55,40 @@ class MySqlJdbcInstrumentationTest {
         reporter.close();
     }
 
+    @Test
+    void capturesBothSupportedMysqlStatementVersions() throws Exception {
+        CountDownLatch delivered = new CountDownLatch(2);
+        AtomicInteger jdbcEvents = new AtomicInteger();
+        AsyncEvidenceReporter reporter = new AsyncEvidenceReporter(8, 1,
+                (events, diagnostics) -> countJdbcEvents(events, jdbcEvents, delivered));
+        JdbcEvidenceRuntime.initialize("order-service", reporter);
+        Class.forName("com.mysql.jdbc.StatementImpl");
+        Class.forName("com.mysql.cj.jdbc.StatementImpl");
+        TransformListener listener = new TransformListener();
+        MySqlJdbcInstrumentation.install(ByteBuddyAgent.install(), listener);
+        TestContextHolder.enter("run", "case", "profile", 1);
+
+        executeStatement("com.mysql.jdbc.StatementImpl");
+        executeStatement("com.mysql.cj.jdbc.StatementImpl");
+
+        assertTrue(listener.transformed.contains("com.mysql.jdbc.StatementImpl"), listener.error);
+        assertTrue(listener.transformed.contains("com.mysql.cj.jdbc.StatementImpl"), listener.error);
+        assertTrue(delivered.await(2, TimeUnit.SECONDS), listener.error);
+        assertEquals(2, jdbcEvents.get());
+        reporter.close();
+    }
+
     private static void execute(String className) throws Exception {
         Class<?> type = Class.forName(className);
         Object statement = type.getConstructor(String.class).newInstance("UPDATE orders SET status = ?");
         Method setString = type.getMethod("setString", int.class, String.class);
         setString.invoke(statement, Integer.valueOf(1), "PAID");
         type.getMethod("executeUpdate").invoke(statement);
+    }
+
+    private static void executeStatement(String className) throws Exception {
+        Class<?> type = Class.forName(className);
+        type.getMethod("executeQuery", String.class).invoke(type.getConstructor().newInstance(), "SELECT 1");
     }
 
     private static void countJdbcEvents(List<EvidencePayload> events, AtomicInteger count, CountDownLatch delivered) {

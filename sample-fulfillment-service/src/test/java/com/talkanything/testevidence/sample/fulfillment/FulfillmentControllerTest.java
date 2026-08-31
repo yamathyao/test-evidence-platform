@@ -9,31 +9,35 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(FulfillmentController.class)
 class FulfillmentControllerTest {
-    @Autowired
-    private MockMvc mockMvc;
+    @Autowired private MockMvc mockMvc;
+    @MockBean private FulfillmentService fulfillmentService;
+    @MockBean private ProtocolProbeService protocolProbeService;
 
-    @MockBean
-    private FulfillmentService fulfillmentService;
+    @Test
+    void echoesProtocolRequestAfterStatementProbe() throws Exception {
+        when(protocolProbeService.echo("matrix-order-1"))
+                .thenReturn(new ProtocolEchoResponse("fulfillment", "matrix-order-1", 1));
+        mockMvc.perform(get("/internal/protocols/echo").param("orderNo", "matrix-order-1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.orderNo").value("matrix-order-1"))
+                .andExpect(jsonPath("$.statementValue").value(1));
+    }
 
     @Test
     void fulfillsValidOrder() throws Exception {
         when(fulfillmentService.fulfill(new FulfillmentRequest("P20-ORDER-1", "SKU-COFFEE", 1, "")))
                 .thenReturn(record("P20-ORDER-1", "SKU-COFFEE", 1, ""));
-
-        mockMvc.perform(post("/internal/fulfillments")
-                        .contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/internal/fulfillments").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"orderNo\":\"P20-ORDER-1\",\"sku\":\"SKU-COFFEE\",\"quantity\":1,\"note\":\"\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("FULFILLED"));
-
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("FULFILLED"));
         verify(fulfillmentService).fulfill(new FulfillmentRequest("P20-ORDER-1", "SKU-COFFEE", 1, ""));
     }
 
@@ -45,42 +49,33 @@ class FulfillmentControllerTest {
                 .thenReturn(java.util.Optional.of(record("BROWSER-001", "SKU-COFFEE", 2, "blackbox")));
         mockMvc.perform(post("/internal/fulfillments").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"orderNo\":\"BROWSER-001\",\"sku\":\"SKU-COFFEE\",\"quantity\":2,\"note\":\"blackbox\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("FULFILLED"));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("FULFILLED"));
         mockMvc.perform(get("/internal/fulfillments/BROWSER-001"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.quantity").value(2));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.quantity").value(2));
     }
 
     @Test
     void rejectsBlankOrderNumber() throws Exception {
         when(fulfillmentService.fulfill(new FulfillmentRequest("   ", "SKU-COFFEE", 1, null)))
                 .thenThrow(new IllegalArgumentException("Invalid order number"));
-
-        mockMvc.perform(post("/internal/fulfillments")
-                        .contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/internal/fulfillments").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"orderNo\":\"   \",\"sku\":\"SKU-COFFEE\",\"quantity\":1}"))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void deletesFulfillmentForOrder() throws Exception {
-        mockMvc.perform(delete("/internal/fulfillments/P20-ORDER-3"))
-                .andExpect(status().isNoContent());
-
+        mockMvc.perform(delete("/internal/fulfillments/P20-ORDER-3")).andExpect(status().isNoContent());
         verify(fulfillmentService).delete("P20-ORDER-3");
     }
 
     @Test
     void returnsNotFoundForUnknownFulfillment() throws Exception {
         when(fulfillmentService.find("P20-UNKNOWN")).thenReturn(java.util.Optional.empty());
-
-        mockMvc.perform(get("/internal/fulfillments/P20-UNKNOWN"))
-                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/internal/fulfillments/P20-UNKNOWN")).andExpect(status().isNotFound());
     }
 
     private FulfillmentRecord record(String orderNo, String sku, int quantity, String note) {
-        return new FulfillmentRecord(orderNo, sku, quantity, note, "FULFILLED",
-                java.time.Instant.parse("2026-08-19T15:30:00Z"));
+        return new FulfillmentRecord(orderNo, sku, quantity, note, "FULFILLED", java.time.Instant.parse("2026-08-19T15:30:00Z"));
     }
 }

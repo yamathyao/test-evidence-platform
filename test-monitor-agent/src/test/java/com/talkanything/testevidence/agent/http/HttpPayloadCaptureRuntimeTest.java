@@ -43,6 +43,19 @@ class HttpPayloadCaptureRuntimeTest {
     }
 
     @Test
+    void marksBodylessGetRequestAsNotApplicable() {
+        HttpPayloadCaptureRuntime runtime = new HttpPayloadCaptureRuntime();
+        runtime.start(context(true), "GET", null, null);
+        runtime.response("{\"ok\":true}".getBytes(StandardCharsets.UTF_8), 0, 11);
+
+        HttpPayloadCaptureRuntime.HttpPayload payload = runtime.finish("application/json", null);
+
+        assertEquals("NOT_APPLICABLE", payload.requestStatus());
+        assertEquals(null, payload.requestBody());
+        assertEquals("CAPTURED", payload.responseStatus());
+    }
+
+    @Test
     void startsOnlyOnceForTheCurrentRequest() {
         HttpPayloadCaptureRuntime runtime = new HttpPayloadCaptureRuntime();
         runtime.start(context(true), "application/json", null);

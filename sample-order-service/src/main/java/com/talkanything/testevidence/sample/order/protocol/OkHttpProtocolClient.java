@@ -1,0 +1,3 @@
+package com.talkanything.testevidence.sample.order.protocol;
+import okhttp3.OkHttpClient;import okhttp3.Request;import org.springframework.stereotype.Component;import java.io.IOException;
+@Component public class OkHttpProtocolClient implements ProtocolClient { private final ProtocolClientSupport support; public OkHttpProtocolClient(ProtocolClientSupport support){this.support=support;} public String name(){return "okhttp";} public ProtocolEchoResponse invoke(ProtocolInvocation r){try(var x=new OkHttpClient().newCall(new Request.Builder().url(support.uri(r)).get().build()).execute()){return support.read(x.code(),x.body().byteStream());}catch(IOException e){throw new IllegalStateException(e);}}}

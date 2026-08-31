@@ -19,7 +19,7 @@ class DubboContextPropagationTest {
 
     @Test
     void writesCompleteMetadataWithoutOverwritingConflictingAttachment() {
-        TestContext context = TestContextHolder.enter("run", "case", "profile", 1);
+        TestContext context = TestContextHolder.enter("run", "case", "profile", 1, true);
         Map<String, String> attachments = new HashMap<String, String>();
 
         assertTrue(DubboContextPropagation.inject(attachments, context));
@@ -29,6 +29,7 @@ class DubboContextPropagationTest {
         assertEquals("1", attachments.get("x-test-profile-version"));
         assertEquals(context.traceId(), attachments.get("x-test-trace-id"));
         assertEquals(context.spanId(), attachments.get("x-test-parent-span-id"));
+        assertEquals("true", attachments.get("x-test-capture-protocol-payload"));
 
         attachments.put("x-test-run-id", "business-run");
 

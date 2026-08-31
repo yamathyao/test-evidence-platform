@@ -31,7 +31,8 @@ h2 { font-size:14px; margin:0 0 18px; color:var(--text); }
 .configuration-workbench-column .data-list { max-height:520px; overflow:auto; padding-right:4px; }
 .case-action { border:1px solid var(--line); background:#101614; color:var(--text); padding:5px 8px; font:inherit; font-size:11px; cursor:pointer; height:min-content; }
 .case-action:hover { border-color:var(--accent); color:var(--accent); }
-.run-case-snapshot { border:1px solid var(--line); background:#141d19; padding:16px; margin-bottom:14px; }
+.run-case-snapshot, .run-evidence-delivery-diagnostics { border:1px solid var(--line); background:#141d19; padding:16px; margin-bottom:14px; }
+.run-evidence-delivery-diagnostics { border-color:#7d4d24; }
 .run-case-snapshot h2 { margin-bottom:8px; }
 .payload-detail { border-top:1px solid var(--line); margin-top:12px; padding-top:10px; }
 .payload-detail h3 { margin:0 0 10px; font-size:12px; color:var(--muted); }
@@ -108,6 +109,10 @@ button[type=submit] { background:var(--accent); color:#142016; border:0; padding
 .trace-toolbar { display:flex; gap:8px; margin:16px 0; border-bottom:1px solid var(--line); overflow-x:auto; }
 .trace-view { border:0; border-bottom:2px solid transparent; background:transparent; color:var(--muted); font:inherit; padding:9px 10px; cursor:pointer; white-space:nowrap; }
 .trace-view.active { color:var(--accent); border-bottom-color:var(--accent); }
+.topology-root-pager { display:flex; align-items:center; gap:8px; margin:0 0 12px; color:var(--muted); }
+.topology-root-page { min-width:72px; text-align:center; font-size:12px; }
+.topology-root-select { max-width:260px; min-width:0; }
+.topology-root-pager[hidden] { display:none; }
 .trace-layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(260px,340px); gap:16px; }
 .trace-layout[hidden], .trace-tree[hidden] { display:none; }
 .topology-canvas { min-height:420px; overflow:auto; border:1px solid var(--line); background:#101614; }
@@ -125,7 +130,10 @@ button[type=submit] { background:var(--accent); color:#142016; border:0; padding
 .topology-edge.highlighted { stroke:var(--accent); stroke-width:2.5; }
 .overview-edge { cursor:pointer; }
 .overview-edge:focus { stroke:var(--accent); stroke-width:2.5; outline:none; }
-.overview-edge-label { fill:var(--muted); font-size:11px; }
+.overview-relation-card { cursor:pointer; outline:none; }
+.overview-relation-card rect { fill:#0f1713; stroke:#527061; stroke-width:1; }
+.overview-relation-card:hover rect, .overview-relation-card:focus rect { stroke:var(--accent); stroke-width:2; }
+.overview-relation-card-text { fill:var(--text); font-size:11px; text-anchor:middle; pointer-events:none; }
 .topology-node.muted, .topology-edge.muted { opacity:.28; }
 .trace-node-detail { min-height:420px; border:1px solid var(--line); background:var(--panel); padding:16px; overflow-wrap:anywhere; }
 .trace-node-detail h2 { margin-bottom:14px; }
@@ -149,6 +157,8 @@ button[type=submit] { background:var(--accent); color:#142016; border:0; padding
   .header-remove { width:100%; }
   .mysql-parameter-row { grid-template-columns:1fr; }
   .mysql-parameter-remove { width:100%; }
+  .topology-root-pager { align-items:stretch; flex-wrap:wrap; }
+  .topology-root-select { flex:1 1 180px; }
   .trace-layout { grid-template-columns:1fr; }
   .topology-canvas { min-height:340px; }
   .trace-node-detail { min-height:0; }

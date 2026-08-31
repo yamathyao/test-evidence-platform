@@ -24,7 +24,7 @@ class DubboInstrumentationTest {
     void capturesClientServerEvidenceForBothLegacyDubboPackages() throws Exception {
         CountDownLatch delivered = new CountDownLatch(4);
         List<EvidencePayload> captured = new CopyOnWriteArrayList<EvidencePayload>();
-        AsyncEvidenceReporter reporter = new AsyncEvidenceReporter(8, 1, events -> {
+        AsyncEvidenceReporter reporter = new AsyncEvidenceReporter(8, 1, (events, diagnostics) -> {
             captured.addAll(events);
             for (EvidencePayload ignored : events) delivered.countDown();
         });

@@ -20,6 +20,11 @@
 .vscode/
 *.iml
 .superpowers/
+docs/superpowers/
 .github-build-verify/
 node_modules/
 coverage/
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db

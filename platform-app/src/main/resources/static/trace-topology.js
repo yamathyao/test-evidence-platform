@@ -105,6 +105,18 @@
     };
   }
 
+  function selectRootTracePage(roots, page) {
+    const availableRoots = roots || [];
+    const pageCount = availableRoots.length;
+    const requestedPage = Number.isInteger(page) ? page : 0;
+    const selectedPage = pageCount ? Math.min(Math.max(requestedPage, 0), pageCount - 1) : 0;
+    return {
+      page: selectedPage,
+      pageCount,
+      roots: pageCount ? [availableRoots[selectedPage]] : []
+    };
+  }
+
   function limitRenderableGraph(graph, maxNodes) {
     const nodes = graph.nodes.slice(0, maxNodes);
     const ids = new Set(nodes.map((item) => item.id));
@@ -116,5 +128,6 @@
     };
   }
 
-  return { buildSpanGraph, buildServiceOverview, isFailed, laneName, layoutSpanGraph, limitRenderableGraph };
+  return { buildSpanGraph, buildServiceOverview, isFailed, laneName, layoutSpanGraph,
+    selectRootTracePage, limitRenderableGraph };
 });

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.talkanything.testevidence.platform.casefile.TestCaseService;
 import com.talkanything.testevidence.platform.casefile.TriggerType;
+import com.talkanything.testevidence.platform.evidence.AgentDeliveryDiagnostic;
+import com.talkanything.testevidence.platform.evidence.AgentDeliveryDiagnosticRepository;
 import com.talkanything.testevidence.platform.shared.PageResponse;
 import java.util.UUID;
 import java.time.Instant;
@@ -25,9 +27,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 class TestRunController {
     private final TestCaseService testCaseService;
     private final TestRunService runService;
+    private final AgentDeliveryDiagnosticRepository diagnosticRepository;
     private final ObjectMapper objectMapper;
-    TestRunController(TestCaseService testCaseService, TestRunService runService, ObjectMapper objectMapper) {
-        this.testCaseService = testCaseService; this.runService = runService; this.objectMapper = objectMapper;
+    TestRunController(TestCaseService testCaseService, TestRunService runService,
+                      AgentDeliveryDiagnosticRepository diagnosticRepository, ObjectMapper objectMapper) {
+        this.testCaseService = testCaseService; this.runService = runService;
+        this.diagnosticRepository = diagnosticRepository; this.objectMapper = objectMapper;
     }
     @PostMapping("/test-cases/{id}/runs") @ResponseStatus(HttpStatus.CREATED)
     RunResponse start(@PathVariable("id") UUID id) { return response(runService.start(testCaseService.find(id))); }
@@ -56,7 +61,16 @@ class TestRunController {
         JsonNode snapshot = run.getCaseSnapshotJson() == null ? null : json(run.getCaseSnapshotJson());
         return new RunResponse(run.getId(), run.getStatus(), run.getFailureReason(), run.getStartedAt(), run.getDrainingAt(),
                 run.getFinishedAt(), run.getFinishReason(), runService.remainingCaptureSeconds(run),
-                runService.rootTraceCount(run.getId()), results, snapshot != null, snapshot);
+                runService.rootTraceCount(run.getId()), diagnostics(run.getId()), results, snapshot != null, snapshot);
+    }
+    private EvidenceDeliveryDiagnostics diagnostics(UUID runId) {
+        List<AgentDeliveryDiagnostic> agents = diagnosticRepository.findByTestRunIdOrderByServiceNameAsc(runId);
+        long dropped = agents.stream().mapToLong(AgentDeliveryDiagnostic::getDroppedEvidenceCount).sum();
+        long failures = agents.stream().mapToLong(AgentDeliveryDiagnostic::getDeliveryFailureCount).sum();
+        List<AgentDeliveryDiagnosticResponse> values = agents.stream().map(item -> new AgentDeliveryDiagnosticResponse(
+                item.getServiceName(), item.getDroppedEvidenceCount(), item.getDeliveryFailureCount(),
+                item.getLastFailure(), item.getUpdatedAt())).toList();
+        return new EvidenceDeliveryDiagnostics(dropped, failures, values);
     }
     private RunListResponse listResponse(TestRun run) {
         return new RunListResponse(run.getId(), run.getTestCase().getId(), run.getTestCase().getName(), run.getStatus(),
@@ -73,8 +87,12 @@ class TestRunController {
     record BlackboxRunRequest(Map<String, String> correlationData, Integer ttlSeconds) { }
     record RunResponse(UUID id, RunStatus status, String failureReason, Instant startedAt, Instant drainingAt,
                        Instant finishedAt, TestRunFinishReason finishReason, long remainingCaptureSeconds,
-                       long rootTraceCount, List<AssertionResultResponse> assertionResults, boolean snapshotAvailable,
-                       JsonNode caseSnapshot) { }
+                       long rootTraceCount, EvidenceDeliveryDiagnostics evidenceDeliveryDiagnostics,
+                       List<AssertionResultResponse> assertionResults, boolean snapshotAvailable, JsonNode caseSnapshot) { }
+    record EvidenceDeliveryDiagnostics(long droppedEvidenceCount, long deliveryFailureCount,
+                                      List<AgentDeliveryDiagnosticResponse> agents) { }
+    record AgentDeliveryDiagnosticResponse(String serviceName, long droppedEvidenceCount, long deliveryFailureCount,
+                                          String lastFailure, Instant updatedAt) { }
     record RunListResponse(UUID id, UUID testCaseId, String testCaseName, RunStatus status, Instant startedAt,
                            Instant drainingAt, Instant finishedAt, TestRunFinishReason finishReason,
                            long remainingCaptureSeconds, long rootTraceCount, String failureReason) { }

@@ -9,20 +9,24 @@ public final class HttpPayloadCaptureRuntime {
     private final ThreadLocal<State> current = new ThreadLocal<State>();
 
     public void start(TestContext context, String requestContentType, String requestContentEncoding) {
+        start(context, null, requestContentType, requestContentEncoding);
+    }
+
+    public void start(TestContext context, String requestMethod, String requestContentType, String requestContentEncoding) {
         if (context == null || !context.payloadCaptureEnabled()) {
             current.remove();
             return;
         }
         State state = current.get();
         if (state == null) {
-            state = new State(requestContentType, requestContentEncoding);
+            state = new State(requestMethod, requestContentType, requestContentEncoding);
             current.set(state);
         }
         state.activate();
     }
 
     public void startDeferred(String requestContentType, String requestContentEncoding) {
-        if (current.get() == null) current.set(new State(requestContentType, requestContentEncoding));
+        if (current.get() == null) current.set(new State(null, requestContentType, requestContentEncoding));
     }
 
     public void activate(TestContext context) {
@@ -37,9 +41,9 @@ public final class HttpPayloadCaptureRuntime {
         current.remove();
         if (state == null || !state.captureEnabled) return null;
         return new HttpPayload(state.requestContentType, responseContentType,
-                status(state.requestContentType, state.requestContentEncoding),
+                state.requestBodyNotApplicable ? "NOT_APPLICABLE" : status(state.requestContentType, state.requestContentEncoding),
                 status(responseContentType, responseContentEncoding),
-                body(state.request, state.requestContentType, state.requestContentEncoding),
+                state.requestBodyNotApplicable ? null : body(state.request, state.requestContentType, state.requestContentEncoding),
                 body(state.response, responseContentType, responseContentEncoding),
                 state.requestTruncated, state.responseTruncated);
     }
@@ -72,6 +76,7 @@ public final class HttpPayloadCaptureRuntime {
     }
 
     private static final class State {
+        private final boolean requestBodyNotApplicable;
         private final String requestContentType;
         private final String requestContentEncoding;
         private final ByteArrayOutputStream request = new ByteArrayOutputStream();
@@ -79,7 +84,8 @@ public final class HttpPayloadCaptureRuntime {
         private boolean captureEnabled;
         private boolean requestTruncated;
         private boolean responseTruncated;
-        private State(String requestContentType, String requestContentEncoding) {
+        private State(String requestMethod, String requestContentType, String requestContentEncoding) {
+            this.requestBodyNotApplicable = "GET".equalsIgnoreCase(requestMethod) || "HEAD".equalsIgnoreCase(requestMethod);
             this.requestContentType = requestContentType;
             this.requestContentEncoding = requestContentEncoding;
         }

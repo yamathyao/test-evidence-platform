@@ -1,0 +1,118 @@
+services:
+  postgres:
+    image: postgres:16-bookworm
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_ONETIME_PASSWORD: ""
+      MYSQL_APP_USER: ${MYSQL_APP_USER}
+      MYSQL_APP_PASSWORD: ${MYSQL_APP_PASSWORD}
+      MYSQL_ASSERTION_USER: ${MYSQL_ASSERTION_USER}
+      MYSQL_ASSERTION_PASSWORD: ${MYSQL_ASSERTION_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql/init/01-users.sh:/docker-entrypoint-initdb.d/01-users.sh:ro
+
+  platform:
+    build:
+      context: .
+      target: platform
+    restart: on-failure:3
+    environment:
+      TEST_PLATFORM_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      TEST_PLATFORM_DB_USERNAME: ${POSTGRES_USER}
+      TEST_PLATFORM_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      TEST_EVIDENCE_AGENT_TOKEN: ${TEST_EVIDENCE_AGENT_TOKEN}
+      TEST_ASSERTION_MYSQL_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}
+      TEST_ASSERTION_MYSQL_USERNAME: ${MYSQL_ASSERTION_USER}
+      TEST_ASSERTION_MYSQL_PASSWORD: ${MYSQL_ASSERTION_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+    ports:
+      - "${PLATFORM_PORT}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:8080/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  fulfillment:
+    build:
+      context: .
+      target: fulfillment
+    environment:
+      JAVA_TOOL_OPTIONS: --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.math=ALL-UNNAMED
+      TEST_EVIDENCE_COLLECTOR: http://platform:8080
+      TEST_EVIDENCE_AGENT_TOKEN: ${TEST_EVIDENCE_AGENT_TOKEN}
+      SAMPLE_FULFILLMENT_PORT: 19121
+      SAMPLE_FULFILLMENT_DUBBO_PORT: 20880
+      SAMPLE_FULFILLMENT_MYSQL_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}
+      SAMPLE_FULFILLMENT_MYSQL_USERNAME: ${MYSQL_APP_USER}
+      SAMPLE_FULFILLMENT_MYSQL_PASSWORD: ${MYSQL_APP_PASSWORD}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      platform:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:19121/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  order:
+    build:
+      context: .
+      target: order
+    environment:
+      JAVA_TOOL_OPTIONS: --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.math=ALL-UNNAMED
+      TEST_EVIDENCE_COLLECTOR: http://platform:8080
+      TEST_EVIDENCE_AGENT_TOKEN: ${TEST_EVIDENCE_AGENT_TOKEN}
+      SAMPLE_ORDER_PORT: 19120
+      SAMPLE_FULFILLMENT_BASE_URL: http://fulfillment:19121
+      SAMPLE_FULFILLMENT_DUBBO_URL: dubbo://fulfillment:20880
+    depends_on:
+      fulfillment:
+        condition: service_healthy
+    ports:
+      - "${ORDER_PORT}:19120"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:19120/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  postgres-data:
+    driver: local
+  mysql-data:
+    driver: local
+
+networks:
+  default:
+    name: test-evidence-platform-network
+    ipam:
+      config:
+        - subnet: ${TEST_EVIDENCE_NETWORK_SUBNET:-10.250.0.0/24}
